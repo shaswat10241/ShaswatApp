@@ -28,6 +28,7 @@ import UndoIcon from "@mui/icons-material/Undo";
 import PeopleIcon from "@mui/icons-material/People";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import SettingsIcon from "@mui/icons-material/Settings";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
 
 import { useUser, useClerk } from "@clerk/clerk-react";
 import { useUserStore } from "../services/userStore";
@@ -571,6 +572,87 @@ const HomePage: React.FC = () => {
             </Paper>
           </Grid>
 
+          {/* Timesheet Card - Available to all employees */}
+          <Grid item xs={12}>
+            <Paper
+              elevation={0}
+              sx={{
+                borderRadius: 2,
+                bgcolor: "#e3f2fd",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+                cursor: "pointer",
+                transition: "transform 0.3s ease, box-shadow 0.3s ease",
+                "&:hover": {
+                  transform: "translateY(-5px)",
+                  boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
+                },
+                mt: 2,
+              }}
+              onClick={() => navigate("/timesheet")}
+            >
+              <Box
+                sx={{
+                  display: "flex",
+                  flexDirection: { xs: "column", md: "row" },
+                  alignItems: "center",
+                  p: 4,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 60,
+                    height: 60,
+                    borderRadius: "50%",
+                    bgcolor: "#1976d2",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    mr: { xs: 0, md: 3 },
+                    mb: { xs: 2, md: 0 },
+                  }}
+                >
+                  <AccessTimeIcon sx={{ fontSize: 30, color: "white" }} />
+                </Box>
+                <Box
+                  sx={{
+                    flexGrow: 1,
+                    display: "flex",
+                    flexDirection: { xs: "column", md: "row" },
+                    alignItems: { xs: "center", md: "flex-start" },
+                    justifyContent: "space-between",
+                    textAlign: { xs: "center", md: "left" },
+                  }}
+                >
+                  <Box>
+                    <Typography variant="h5" fontWeight="600" gutterBottom>
+                      My Timesheet
+                    </Typography>
+                    <Typography variant="body1" color="text.secondary">
+                      Log your daily work hours and track your time
+                    </Typography>
+                  </Box>
+                  <Button
+                    variant="contained"
+                    size="large"
+                    startIcon={<AccessTimeIcon />}
+                    sx={{
+                      px: 4,
+                      py: 1.25,
+                      borderRadius: 8,
+                      textTransform: "uppercase",
+                      fontWeight: 600,
+                      bgcolor: "#1976d2",
+                      "&:hover": { bgcolor: "#1565c0" },
+                      mt: { xs: 2, md: 0 },
+                    }}
+                  >
+                    LOG TIME
+                  </Button>
+                </Box>
+              </Box>
+            </Paper>
+          </Grid>
+
           {/* Admin Only Section */}
           {isAdmin() && (
             <>
@@ -737,6 +819,79 @@ const HomePage: React.FC = () => {
                       }}
                     >
                       VIEW REPORTS
+                    </Button>
+                  </Box>
+                </Paper>
+              </Grid>
+
+              {/* Admin Timesheets Card */}
+              <Grid item xs={12} sm={6} md={4}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    height: "100%",
+                    borderRadius: 2,
+                    bgcolor: "white",
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+                    cursor: "pointer",
+                    transition: "transform 0.3s ease, box-shadow 0.3s ease",
+                    "&:hover": {
+                      transform: "translateY(-5px)",
+                      boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
+                    },
+                  }}
+                  onClick={() => navigate("/admin/timesheets")}
+                >
+                  <Box
+                    sx={{
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      p: 4,
+                      textAlign: "center",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: "50%",
+                        bgcolor: "#9c27b0",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        mb: 3,
+                      }}
+                    >
+                      <AccessTimeIcon sx={{ fontSize: 40, color: "white" }} />
+                    </Box>
+                    <Typography variant="h5" fontWeight="600" gutterBottom>
+                      Employee Timesheets
+                    </Typography>
+                    <Typography
+                      variant="body1"
+                      color="text.secondary"
+                      sx={{ mb: 3 }}
+                    >
+                      View all employee time logs
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      size="large"
+                      startIcon={<AccessTimeIcon />}
+                      sx={{
+                        px: 4,
+                        py: 1.25,
+                        borderRadius: 8,
+                        textTransform: "uppercase",
+                        fontWeight: 600,
+                        bgcolor: "#9c27b0",
+                        "&:hover": { bgcolor: "#7b1fa2" },
+                      }}
+                    >
+                      VIEW TIMESHEETS
                     </Button>
                   </Box>
                 </Paper>

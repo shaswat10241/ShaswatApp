@@ -117,6 +117,7 @@ ON CONFLICT (id) DO NOTHING;
 CREATE TABLE IF NOT EXISTS orders (
   id TEXT PRIMARY KEY,
   shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  employee_id TEXT,
   order_items JSONB NOT NULL,
   total_amount DECIMAL(10, 2) NOT NULL,
   discount_code TEXT,
@@ -133,6 +134,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at DESC);
 CREATE TABLE IF NOT EXISTS return_orders (
   id TEXT PRIMARY KEY,
   shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
+  employee_id TEXT,
   linked_order_id TEXT REFERENCES orders(id) ON DELETE SET NULL,
   return_items JSONB NOT NULL,
   total_amount DECIMAL(10, 2) NOT NULL,
@@ -320,3 +322,47 @@ CREATE TRIGGER update_users_updated_at
 INSERT INTO users (id, email, name, role, is_active) VALUES
   ('admin-001', 'admin@snackbasket.com', 'Admin User', 'admin', true)
 ON CONFLICT (id) DO NOTHING;
+
+-- Create timesheet_entries table
+CREATE TABLE IF NOT EXISTS timesheet_entries (
+  id TEXT PRIMARY KEY,
+  employee_id TEXT NOT NULL,
+  employee_name TEXT NOT NULL,
+  date DATE NOT NULL,
+  work_description TEXT NOT NULL,
+  hours_worked DECIMAL(5, 2) NOT NULL CHECK (hours_worked > 0 AND hours_worked <= 24),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(employee_id, date)
+);
+
+-- Create indexes for timesheet_entries
+CREATE INDEX IF NOT EXISTS idx_timesheet_entries_employee_id ON timesheet_entries(employee_id);
+CREATE INDEX IF NOT EXISTS idx_timesheet_entries_date ON timesheet_entries(date DESC);
+CREATE INDEX IF NOT EXISTS idx_timesheet_entries_employee_date ON timesheet_entries(employee_id, date);
+
+-- Enable Row Level Security for timesheet_entries
+ALTER TABLE timesheet_entries ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for timesheet_entries table
+CREATE POLICY "Allow read access to timesheet_entries" ON timesheet_entries
+  FOR SELECT
+  USING (true);
+
+CREATE POLICY "Allow insert access to timesheet_entries" ON timesheet_entries
+  FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY "Allow update access to timesheet_entries" ON timesheet_entries
+  FOR UPDATE
+  USING (true);
+
+CREATE POLICY "Allow delete access to timesheet_entries" ON timesheet_entries
+  FOR DELETE
+  USING (true);
+
+-- Trigger to automatically update updated_at for timesheet_entries
+CREATE TRIGGER update_timesheet_entries_updated_at
+  BEFORE UPDATE ON timesheet_entries
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();

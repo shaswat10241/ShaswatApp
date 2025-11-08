@@ -1,6 +1,7 @@
 // Supabase Postgres database wrapper for shops, SKUs, orders, and deliveries
 import { supabase } from "../utils/supabase";
 import { DeliveryStatus } from "../models/Delivery";
+import { TimesheetEntry } from "../models/Timesheet";
 
 interface Shop {
   id?: string;
@@ -971,6 +972,154 @@ class ShopDatabase {
     const { error } = await supabase.from("users").delete().eq("id", id);
 
     if (error) throw error;
+  }
+
+  // Timesheet methods
+  async addTimesheetEntry(entry: TimesheetEntry): Promise<TimesheetEntry> {
+    const { data, error } = await supabase
+      .from("timesheet_entries")
+      .insert([
+        {
+          id: entry.id,
+          employee_id: entry.employeeId,
+          employee_name: entry.employeeName,
+          date: entry.date.toISOString().split("T")[0],
+          work_description: entry.workDescription,
+          hours_worked: entry.hoursWorked,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return {
+      id: data.id,
+      employeeId: data.employee_id,
+      employeeName: data.employee_name,
+      date: new Date(data.date),
+      workDescription: data.work_description,
+      hoursWorked: data.hours_worked,
+      createdAt: new Date(data.created_at),
+      updatedAt: new Date(data.updated_at),
+    };
+  }
+
+  async getTimesheetEntriesByEmployee(
+    employeeId: string,
+    startDate: Date,
+    endDate: Date,
+  ): Promise<TimesheetEntry[]> {
+    const { data, error } = await supabase
+      .from("timesheet_entries")
+      .select("*")
+      .eq("employee_id", employeeId)
+      .gte("date", startDate.toISOString().split("T")[0])
+      .lte("date", endDate.toISOString().split("T")[0])
+      .order("date", { ascending: true });
+
+    if (error) throw error;
+
+    return (data || []).map((entry: any) => ({
+      id: entry.id,
+      employeeId: entry.employee_id,
+      employeeName: entry.employee_name,
+      date: new Date(entry.date),
+      workDescription: entry.work_description,
+      hoursWorked: entry.hours_worked,
+      createdAt: new Date(entry.created_at),
+      updatedAt: new Date(entry.updated_at),
+    }));
+  }
+
+  async getTimesheetEntryByDate(
+    employeeId: string,
+    date: Date,
+  ): Promise<TimesheetEntry | null> {
+    const { data, error } = await supabase
+      .from("timesheet_entries")
+      .select("*")
+      .eq("employee_id", employeeId)
+      .eq("date", date.toISOString().split("T")[0])
+      .single();
+
+    if (error) return null;
+
+    return {
+      id: data.id,
+      employeeId: data.employee_id,
+      employeeName: data.employee_name,
+      date: new Date(data.date),
+      workDescription: data.work_description,
+      hoursWorked: data.hours_worked,
+      createdAt: new Date(data.created_at),
+      updatedAt: new Date(data.updated_at),
+    };
+  }
+
+  async updateTimesheetEntry(entry: TimesheetEntry): Promise<TimesheetEntry> {
+    const { data, error } = await supabase
+      .from("timesheet_entries")
+      .update({
+        work_description: entry.workDescription,
+        hours_worked: entry.hoursWorked,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", entry.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return {
+      id: data.id,
+      employeeId: data.employee_id,
+      employeeName: data.employee_name,
+      date: new Date(data.date),
+      workDescription: data.work_description,
+      hoursWorked: data.hours_worked,
+      createdAt: new Date(data.created_at),
+      updatedAt: new Date(data.updated_at),
+    };
+  }
+
+  async deleteTimesheetEntry(id: string): Promise<void> {
+    const { error } = await supabase
+      .from("timesheet_entries")
+      .delete()
+      .eq("id", id);
+
+    if (error) throw error;
+  }
+
+  async getAllTimesheetEntriesByMonth(
+    month: number,
+    year: number,
+  ): Promise<TimesheetEntry[]> {
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
+
+    const { data, error } = await supabase
+      .from("timesheet_entries")
+      .select("*")
+      .gte("date", startDate.toISOString().split("T")[0])
+      .lte("date", endDate.toISOString().split("T")[0])
+      .order("date", { ascending: true });
+
+    if (error) throw error;
+
+    return (data || []).map((entry: any) => ({
+      id: entry.id,
+      employeeId: entry.employee_id,
+      employeeName: entry.employee_name,
+      date: new Date(entry.date),
+      workDescription: entry.work_description,
+      hoursWorked: entry.hours_worked,
+      createdAt: new Date(entry.created_at),
+      updatedAt: new Date(entry.updated_at),
+    }));
   }
 }
 

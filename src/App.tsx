@@ -22,6 +22,8 @@ import SurveyPage from "./pages/SurveyPage";
 import ReturnOrderPage from "./pages/ReturnOrder";
 import WelcomePage from "./pages/WelcomePage";
 import AnalyticsPage from "./pages/admin/AnalyticsPage";
+import TimesheetPage from "./pages/TimesheetPage";
+import AdminTimesheetPage from "./pages/admin/AdminTimesheetPage";
 
 // Components
 import AuthWrapper from "./components/auth/AuthWrapper";
@@ -174,6 +176,24 @@ function App() {
                 element={
                   <AuthWrapper requireAuth={true}>
                     <AnalyticsPage />
+                  </AuthWrapper>
+                }
+              />
+
+              <Route
+                path="/timesheet"
+                element={
+                  <AuthWrapper requireAuth={true}>
+                    <TimesheetPage />
+                  </AuthWrapper>
+                }
+              />
+
+              <Route
+                path="/admin/timesheets"
+                element={
+                  <AuthWrapper requireAuth={true}>
+                    <AdminTimesheetPage />
                   </AuthWrapper>
                 }
               />
