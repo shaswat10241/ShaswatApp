@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useForm, Controller, useFieldArray } from "react-hook-form";
 import { useDeliveryStore } from "../services/deliveryStore";
@@ -26,8 +26,7 @@ import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { useShopStore } from "../services/shopStore";
 import { useOrderStore } from "../services/orderStore";
-import { OrderFormData, OrderItem, ReturnItem, SKU } from "../models/Order";
-import { Shop } from "../models/Shop";
+import { OrderFormData, SKU } from "../models/Order";
 
 const OrderForm: React.FC = () => {
   const navigate = useNavigate();
@@ -38,7 +37,6 @@ const OrderForm: React.FC = () => {
     createOrder,
     loading: ordersLoading,
   } = useOrderStore();
-  const [selectedShop, setSelectedShop] = useState<Shop | null>(null);
 
   // Initialize form
   const {
@@ -46,7 +44,6 @@ const OrderForm: React.FC = () => {
     handleSubmit,
     formState: { errors },
     watch,
-    setValue,
   } = useForm<OrderFormData>({
     defaultValues: {
       shopId: "",
@@ -119,12 +116,6 @@ const OrderForm: React.FC = () => {
     }
   };
 
-  // Handler for shop selection
-  const handleShopChange = (shopId: string) => {
-    const shop = shops.find((s) => s.id === shopId);
-    setSelectedShop(shop || null);
-  };
-
   return (
     <Paper className="form-container">
       <Typography variant="h5" component="h2" gutterBottom>
@@ -146,7 +137,6 @@ const OrderForm: React.FC = () => {
                   displayEmpty
                   onChange={(e) => {
                     field.onChange(e);
-                    handleShopChange(e.target.value as string);
                   }}
                 >
                   <MenuItem value="" disabled>

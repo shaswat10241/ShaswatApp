@@ -131,11 +131,12 @@ const BatchCostCalculatorPage: React.FC = () => {
       0,
     );
 
-    // Other Expenses per unit = Σ(Expense_Items)
-    const otherExpensesCost = formData.otherExpenses.reduce(
-      (sum, expense) => sum + expense.totalCost,
-      0,
-    );
+    // Other Expenses per unit = Σ(Expense_Items) / Total_Units
+    const otherExpensesCost =
+      formData.otherExpenses.reduce(
+        (sum, expense) => sum + expense.totalCost,
+        0,
+      ) / totalQty;
 
     // Per Unit Cost
     const perUnit =
@@ -261,8 +262,8 @@ const BatchCostCalculatorPage: React.FC = () => {
         items: formData.otherExpenses.map((expense) => ({
           label: expense.name || "Unnamed Expense",
           value: expense.totalCost,
-          calculation: `₹${expense.totalCost}`,
-          details: "Miscellaneous expense",
+          calculation: `₹${expense.totalCost} / ${formData.totalQuantityProduced} units`,
+          details: "Total cost divided by quantity produced",
         })),
       },
     ];
@@ -1315,9 +1316,8 @@ const BatchCostCalculatorPage: React.FC = () => {
                 [(No. of People × Avg Salary) / Total Units] + {"\n"}
                 [(Electricity kWh × Cost per kWh) / Total Units] + {"\n"}
                 [Packaging Unit Cost] + {"\n"}
-                [(Fuel Cost + Driver Cost) / Total Units] + {"\n"}
-                [Σ(Marketing Unit Cost per Employee)] + {"\n"}
-                [Σ(Other Expense Items)]
+                [(Fuel Cost + Driver Cost) / Total Units] + [Σ(Marketing Unit
+                Cost per Employee)] + [Σ(Other Expense Items) / Total Units]
                 {"\n\n"}
                 Total Cost = Per Unit Cost × Total Quantity
               </Typography>

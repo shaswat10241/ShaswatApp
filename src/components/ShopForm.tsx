@@ -7,11 +7,9 @@ import {
   FormControl,
   FormHelperText,
   FormLabel,
-  MenuItem,
   Paper,
   Radio,
   RadioGroup,
-  Select,
   Stack,
   TextField,
   Typography,
@@ -44,7 +42,6 @@ const ShopForm: React.FC = () => {
     handleSubmit,
     formState: { errors },
     setValue,
-    watch,
   } = useForm<ShopFormData>({
     defaultValues: {
       name: "",
@@ -55,8 +52,6 @@ const ShopForm: React.FC = () => {
       longitude: undefined,
     },
   });
-
-  const locationValue = watch("location");
 
   const getGeolocation = async () => {
     setLocationLoading(true);
@@ -149,6 +144,7 @@ const ShopForm: React.FC = () => {
   // Try to get location when component mounts
   useEffect(() => {
     getGeolocation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const onSubmit = async (data: ShopFormData) => {

@@ -7,7 +7,6 @@ import {
   Grid,
   Card,
   CardContent,
-  useTheme,
   alpha,
 } from "@mui/material";
 import { SignInButton } from "@clerk/clerk-react";
@@ -18,7 +17,6 @@ import InventoryIcon from "@mui/icons-material/Inventory";
 import ArrowForwardIcon from "@mui/icons-material/ArrowForward";
 
 const WelcomePage: React.FC = () => {
-  const theme = useTheme();
 
   const features = [
     {
