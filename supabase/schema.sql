@@ -367,3 +367,77 @@ CREATE TRIGGER update_timesheet_entries_updated_at
   BEFORE UPDATE ON timesheet_entries
   FOR EACH ROW
   EXECUTE FUNCTION update_updated_at_column();
+
+-- Create batch_costs table for cost calculations
+CREATE TABLE IF NOT EXISTS batch_costs (
+  id TEXT PRIMARY KEY,
+  product_name TEXT NOT NULL,
+  product_sku_id TEXT,
+  calculation_date DATE NOT NULL,
+  revision_number INTEGER NOT NULL DEFAULT 1,
+  calculated_by TEXT NOT NULL,
+  calculated_by_email TEXT NOT NULL,
+
+  -- Production data
+  total_quantity_produced DECIMAL(10, 2) NOT NULL,
+
+  -- Cost components (stored as JSONB for flexibility)
+  raw_materials JSONB NOT NULL,
+  labour_cost JSONB NOT NULL,
+  electricity_cost JSONB NOT NULL,
+  packaging_cost JSONB NOT NULL,
+  transportation_cost JSONB NOT NULL,
+  marketing_employees JSONB NOT NULL,
+  other_expenses JSONB NOT NULL,
+
+  -- Calculated totals
+  total_raw_material_cost DECIMAL(12, 2) NOT NULL,
+  total_labour_cost DECIMAL(12, 2) NOT NULL,
+  total_electricity_cost DECIMAL(12, 2) NOT NULL,
+  total_packaging_cost DECIMAL(12, 2) NOT NULL,
+  total_transportation_cost DECIMAL(12, 2) NOT NULL,
+  total_marketing_cost DECIMAL(12, 2) NOT NULL,
+  total_other_expenses DECIMAL(12, 2) NOT NULL,
+  grand_total DECIMAL(12, 2) NOT NULL,
+  per_unit_cost DECIMAL(12, 4) NOT NULL,
+
+  -- Metadata
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+
+  -- Composite unique constraint
+  UNIQUE(product_name, calculation_date, revision_number)
+);
+
+-- Create indexes for batch_costs
+CREATE INDEX IF NOT EXISTS idx_batch_costs_product_name ON batch_costs(product_name);
+CREATE INDEX IF NOT EXISTS idx_batch_costs_calculation_date ON batch_costs(calculation_date DESC);
+CREATE INDEX IF NOT EXISTS idx_batch_costs_product_sku_id ON batch_costs(product_sku_id);
+CREATE INDEX IF NOT EXISTS idx_batch_costs_composite ON batch_costs(product_name, calculation_date DESC);
+
+-- Enable Row Level Security for batch_costs
+ALTER TABLE batch_costs ENABLE ROW LEVEL SECURITY;
+
+-- Create policies for batch_costs table
+CREATE POLICY "Allow read access to batch_costs" ON batch_costs
+  FOR SELECT
+  USING (true);
+
+CREATE POLICY "Allow insert access to batch_costs" ON batch_costs
+  FOR INSERT
+  WITH CHECK (true);
+
+CREATE POLICY "Allow update access to batch_costs" ON batch_costs
+  FOR UPDATE
+  USING (true);
+
+CREATE POLICY "Allow delete access to batch_costs" ON batch_costs
+  FOR DELETE
+  USING (true);
+
+-- Trigger to automatically update updated_at for batch_costs
+CREATE TRIGGER update_batch_costs_updated_at
+  BEFORE UPDATE ON batch_costs
+  FOR EACH ROW
+  EXECUTE FUNCTION update_updated_at_column();

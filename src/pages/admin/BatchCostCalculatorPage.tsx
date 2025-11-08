@@ -30,6 +30,7 @@ import {
   InputLabel,
   Chip,
   Alert,
+  Snackbar,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import AddIcon from "@mui/icons-material/Add";
@@ -49,10 +50,16 @@ import {
   createEmptyBatchCostForm,
 } from "../../models/BatchCost";
 import { useOrderStore } from "../../services/orderStore";
+import { useUserStore } from "../../services/userStore";
+import { useUser } from "@clerk/clerk-react";
+import { shopDB } from "../../services/database";
+import { createSavedBatchCostFromForm } from "../../models/BatchCost";
 
 const BatchCostCalculatorPage: React.FC = () => {
   const navigate = useNavigate();
+  const { user } = useUser();
   const { skus, fetchSKUs } = useOrderStore();
+  const { users, fetchAllUsers } = useUserStore();
 
   const [formData, setFormData] = useState<BatchCostFormData>(
     createEmptyBatchCostForm(),
@@ -62,53 +69,76 @@ const BatchCostCalculatorPage: React.FC = () => {
   const [analysisOpen, setAnalysisOpen] = useState(false);
   const [breakdowns, setBreakdowns] = useState<CostBreakdown[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error">(
+    "success",
+  );
+
+  // Store calculation results for saving
+  const [calculationResults, setCalculationResults] = useState({
+    totalRawMaterialCost: 0,
+    totalLabourCost: 0,
+    totalElectricityCost: 0,
+    totalPackagingCost: 0,
+    totalTransportationCost: 0,
+    totalMarketingCost: 0,
+    totalOtherExpenses: 0,
+  });
 
   useEffect(() => {
     fetchSKUs();
-  }, [fetchSKUs]);
+    fetchAllUsers();
+  }, [fetchSKUs, fetchAllUsers]);
 
   // Calculate costs in real-time
   const calculateCosts = () => {
-    // Raw Material Cost
-    const rawMaterialCost = formData.rawMaterials.reduce(
-      (sum, item) =>
-        sum +
-        item.quantity * (item.totalCost / (item.quantity || 1)) * item.ratio,
-      0,
-    );
+    const totalQty = formData.totalQuantityProduced || 1;
 
-    // Labour Cost
+    // Raw Material Cost per unit = Σ(Quantity_kg × Unit_Cost) / Total_Units
+    const rawMaterialCost = formData.rawMaterials.reduce((sum, item) => {
+      // Convert quantity to kg if in grams
+      const quantityInKg =
+        item.quantityUnit === "g" ? item.quantity / 1000 : item.quantity;
+      return sum + (quantityInKg * item.unitCost) / totalQty;
+    }, 0);
+
+    // Labour Cost per unit = (Number_of_People × Average_Salary) / Total_Units
     const labourCost =
-      formData.labourCost.numberOfPeople * formData.labourCost.averageSalary;
+      (formData.labourCost.numberOfPeople * formData.labourCost.averageSalary) /
+      totalQty;
 
-    // Electricity Cost
+    // Electricity Cost per unit = (Units × Cost_per_Unit) / Total_Units
     const electricityCost =
-      formData.electricityCost.unitsUsed * formData.electricityCost.costPerUnit;
+      (formData.electricityCost.unitsUsed *
+        formData.electricityCost.costPerUnit) /
+      totalQty;
 
-    // Packaging Cost
-    const packagingCost =
-      formData.packagingCost.unitCost * formData.packagingCost.numberOfUnits;
+    // Packaging Cost per unit = Unit_Cost (already per unit)
+    const packagingCost = formData.packagingCost.unitCost;
 
-    // Transportation Cost
+    // Transportation Cost per unit = (Fuel_Cost + Driver_Cost) / Total_Units
+    // Note: numberOfKMs is just for reference/details
     const transportationCost =
-      formData.transportationCost.fuelCost +
-      formData.transportationCost.numberOfKMs +
-      formData.transportationCost.driverCost;
+      (formData.transportationCost.fuelCost +
+        formData.transportationCost.driverCost) /
+      totalQty;
 
-    // Marketing Cost
+    // Marketing Cost per unit = Σ(Unit_Cost) - one person per selection
     const marketingCost = formData.marketingEmployees.reduce(
-      (sum, emp) => sum + emp.salary,
+      (sum, emp) => sum + emp.unitCost,
       0,
     );
 
-    // Other Expenses
+    // Other Expenses per unit = Σ(Expense_Items)
     const otherExpensesCost = formData.otherExpenses.reduce(
       (sum, expense) => sum + expense.totalCost,
       0,
     );
 
-    // Grand Total
-    const total =
+    // Per Unit Cost
+    const perUnit =
       rawMaterialCost +
       labourCost +
       electricityCost +
@@ -117,14 +147,23 @@ const BatchCostCalculatorPage: React.FC = () => {
       marketingCost +
       otherExpensesCost;
 
+    setPerUnitCost(perUnit);
+
+    // Grand Total = Per Unit Cost × Total Quantity
+    const total = perUnit * formData.totalQuantityProduced;
     setGrandTotal(total);
 
-    // Per Unit Cost
-    const perUnit =
-      formData.totalQuantityProduced > 0
-        ? total / formData.totalQuantityProduced
-        : 0;
-    setPerUnitCost(perUnit);
+    // Store calculation results (as totals for saving)
+    setCalculationResults({
+      totalRawMaterialCost: rawMaterialCost * formData.totalQuantityProduced,
+      totalLabourCost: labourCost * formData.totalQuantityProduced,
+      totalElectricityCost: electricityCost * formData.totalQuantityProduced,
+      totalPackagingCost: packagingCost * formData.totalQuantityProduced,
+      totalTransportationCost:
+        transportationCost * formData.totalQuantityProduced,
+      totalMarketingCost: marketingCost * formData.totalQuantityProduced,
+      totalOtherExpenses: otherExpensesCost * formData.totalQuantityProduced,
+    });
 
     // Create breakdowns for analysis
     const totalForPercentage = total || 1;
@@ -133,15 +172,18 @@ const BatchCostCalculatorPage: React.FC = () => {
         category: "Raw Material Cost",
         total: rawMaterialCost,
         percentage: (rawMaterialCost / totalForPercentage) * 100,
-        items: formData.rawMaterials.map((item) => ({
-          label: item.name || "Unnamed Item",
-          value:
-            item.quantity *
-            (item.totalCost / (item.quantity || 1)) *
-            item.ratio,
-          calculation: `${item.quantity} × ₹${(item.totalCost / (item.quantity || 1)).toFixed(2)} × ${item.ratio}`,
-          details: `Quantity: ${item.quantity}, Unit Cost: ₹${(item.totalCost / (item.quantity || 1)).toFixed(2)}, Ratio: ${item.ratio}`,
-        })),
+        items: formData.rawMaterials.map((item) => {
+          const quantityInKg =
+            item.quantityUnit === "g" ? item.quantity / 1000 : item.quantity;
+          const totalQty = formData.totalQuantityProduced || 1;
+          const itemCost = (quantityInKg * item.unitCost) / totalQty;
+          return {
+            label: item.name || "Unnamed Item",
+            value: itemCost * totalQty,
+            calculation: `(${item.quantity}${item.quantityUnit} × ₹${item.unitCost.toFixed(2)}) / ${totalQty} units`,
+            details: `Quantity: ${item.quantity}${item.quantityUnit}, Unit Cost: ₹${item.unitCost.toFixed(2)}/kg`,
+          };
+        }),
       },
       {
         category: "Labour Cost",
@@ -150,9 +192,9 @@ const BatchCostCalculatorPage: React.FC = () => {
         items: [
           {
             label: "Total Labour Cost",
-            value: labourCost,
-            calculation: `${formData.labourCost.numberOfPeople} × ₹${formData.labourCost.averageSalary}`,
-            details: `${formData.labourCost.numberOfPeople} people × ₹${formData.labourCost.averageSalary} avg salary`,
+            value: labourCost * formData.totalQuantityProduced,
+            calculation: `(${formData.labourCost.numberOfPeople} × ₹${formData.labourCost.averageSalary}) / ${formData.totalQuantityProduced} units`,
+            details: `${formData.labourCost.numberOfPeople} people × ₹${formData.labourCost.averageSalary} avg salary per unit`,
           },
         ],
       },
@@ -163,9 +205,9 @@ const BatchCostCalculatorPage: React.FC = () => {
         items: [
           {
             label: "Total Electricity Cost",
-            value: electricityCost,
-            calculation: `${formData.electricityCost.unitsUsed} × ₹${formData.electricityCost.costPerUnit}`,
-            details: `${formData.electricityCost.unitsUsed} units × ₹${formData.electricityCost.costPerUnit} per unit`,
+            value: electricityCost * formData.totalQuantityProduced,
+            calculation: `(${formData.electricityCost.unitsUsed} kWh × ₹${formData.electricityCost.costPerUnit}) / ${formData.totalQuantityProduced} units`,
+            details: `${formData.electricityCost.unitsUsed} kWh × ₹${formData.electricityCost.costPerUnit} per kWh per unit`,
           },
         ],
       },
@@ -176,9 +218,9 @@ const BatchCostCalculatorPage: React.FC = () => {
         items: [
           {
             label: "Total Packaging Cost",
-            value: packagingCost,
-            calculation: `${formData.packagingCost.numberOfUnits} × ₹${formData.packagingCost.unitCost}`,
-            details: `${formData.packagingCost.numberOfUnits} units × ₹${formData.packagingCost.unitCost} per unit`,
+            value: packagingCost * formData.totalQuantityProduced,
+            calculation: `₹${formData.packagingCost.unitCost} per unit`,
+            details: `Unit cost already calculated per package`,
           },
         ],
       },
@@ -190,20 +232,14 @@ const BatchCostCalculatorPage: React.FC = () => {
           {
             label: "Fuel Cost",
             value: formData.transportationCost.fuelCost,
-            calculation: `₹${formData.transportationCost.fuelCost}`,
-            details: "Fuel expenses",
-          },
-          {
-            label: "Distance Cost",
-            value: formData.transportationCost.numberOfKMs,
-            calculation: `₹${formData.transportationCost.numberOfKMs}`,
-            details: "Cost based on kilometers",
+            calculation: `(₹${formData.transportationCost.fuelCost}) / ${formData.totalQuantityProduced} units`,
+            details: `Fuel expenses for ${formData.transportationCost.numberOfKMs} KMs`,
           },
           {
             label: "Driver Cost",
             value: formData.transportationCost.driverCost,
-            calculation: `₹${formData.transportationCost.driverCost}`,
-            details: "Driver salary/wages",
+            calculation: `(₹${formData.transportationCost.driverCost}) / ${formData.totalQuantityProduced} units`,
+            details: "Driver salary/wages per unit",
           },
         ],
       },
@@ -213,9 +249,9 @@ const BatchCostCalculatorPage: React.FC = () => {
         percentage: (marketingCost / totalForPercentage) * 100,
         items: formData.marketingEmployees.map((emp) => ({
           label: emp.employeeName || "Unnamed Employee",
-          value: emp.salary,
-          calculation: `₹${emp.salary}`,
-          details: `Marketing employee salary`,
+          value: emp.unitCost * formData.totalQuantityProduced,
+          calculation: `₹${emp.unitCost} per unit`,
+          details: `Marketing unit cost for selected employee`,
         })),
       },
       {
@@ -341,6 +377,75 @@ const BatchCostCalculatorPage: React.FC = () => {
     setShowResults(false);
   };
 
+  const handleSave = async () => {
+    // Validation
+    if (!formData.productName || formData.productName.trim() === "") {
+      setSnackbarMessage("Please select a product name");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+      return;
+    }
+
+    if (formData.totalQuantityProduced <= 0) {
+      setSnackbarMessage("Please enter total quantity produced");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+      return;
+    }
+
+    if (!showResults) {
+      setSnackbarMessage("Please calculate costs first");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      // Get next revision number
+      const latestRevision = await shopDB.getLatestRevisionNumber(
+        formData.productName,
+      );
+      const newRevisionNumber = latestRevision + 1;
+
+      // Create saved batch cost
+      const savedCost = createSavedBatchCostFromForm(
+        formData,
+        {
+          ...calculationResults,
+          grandTotal,
+          perUnitCost,
+        },
+        {
+          calculatedBy: user?.fullName || user?.firstName || "User",
+          calculatedByEmail:
+            user?.emailAddresses?.[0]?.emailAddress || "unknown@example.com",
+          revisionNumber: newRevisionNumber,
+        },
+      );
+
+      // Save to database
+      await shopDB.saveBatchCost(savedCost);
+
+      setSnackbarMessage(
+        `Cost calculation saved successfully! (Revision ${newRevisionNumber})`,
+      );
+      setSnackbarSeverity("success");
+      setSnackbarOpen(true);
+
+      // Close analysis dialog if open
+      setAnalysisOpen(false);
+    } catch (error) {
+      console.error("Error saving batch cost:", error);
+      setSnackbarMessage("Failed to save calculation. Please try again.");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
       <AppBar
@@ -412,9 +517,9 @@ const BatchCostCalculatorPage: React.FC = () => {
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
-                label="Total Quantity Produced"
+                label="Total Quantity Produced (Units)"
                 type="number"
-                value={formData.totalQuantityProduced}
+                value={formData.totalQuantityProduced || ""}
                 onChange={(e) =>
                   setFormData({
                     ...formData,
@@ -422,6 +527,7 @@ const BatchCostCalculatorPage: React.FC = () => {
                   })
                 }
                 placeholder="ENTER QUANTITY"
+                helperText="Total number of units to be produced"
               />
             </Grid>
           </Grid>
@@ -456,8 +562,10 @@ const BatchCostCalculatorPage: React.FC = () => {
                 <TableRow sx={{ bgcolor: "#f5f5f5" }}>
                   <TableCell sx={{ fontWeight: "bold" }}>Item</TableCell>
                   <TableCell sx={{ fontWeight: "bold" }}>Quantity</TableCell>
-                  <TableCell sx={{ fontWeight: "bold" }}>Total Cost</TableCell>
-                  <TableCell sx={{ fontWeight: "bold" }}>Ratio</TableCell>
+                  <TableCell sx={{ fontWeight: "bold" }}>Unit</TableCell>
+                  <TableCell sx={{ fontWeight: "bold" }}>
+                    Unit Cost (₹/kg)
+                  </TableCell>
                   <TableCell sx={{ fontWeight: "bold" }}>Action</TableCell>
                 </TableRow>
               </TableHead>
@@ -496,35 +604,41 @@ const BatchCostCalculatorPage: React.FC = () => {
                       />
                     </TableCell>
                     <TableCell>
-                      <TextField
+                      <Select
                         fullWidth
                         size="small"
-                        type="number"
-                        placeholder="ENTER TOTAL COST"
-                        value={item.totalCost || ""}
+                        value={item.quantityUnit}
                         onChange={(e) =>
                           handleRawMaterialChange(
                             item.id,
-                            "totalCost",
-                            Number(e.target.value),
+                            "quantityUnit",
+                            e.target.value,
                           )
                         }
-                      />
+                      >
+                        <MenuItem value="kg">kg</MenuItem>
+                        <MenuItem value="g">g</MenuItem>
+                      </Select>
                     </TableCell>
                     <TableCell>
                       <TextField
                         fullWidth
                         size="small"
                         type="number"
-                        value={item.ratio || ""}
+                        placeholder="COST PER KG"
+                        value={item.unitCost || ""}
                         onChange={(e) =>
                           handleRawMaterialChange(
                             item.id,
-                            "ratio",
+                            "unitCost",
                             Number(e.target.value),
                           )
                         }
-                        inputProps={{ step: 0.1 }}
+                        InputProps={{
+                          startAdornment: (
+                            <span style={{ marginRight: 4 }}>₹</span>
+                          ),
+                        }}
                       />
                     </TableCell>
                     <TableCell>
@@ -576,12 +690,13 @@ const BatchCostCalculatorPage: React.FC = () => {
                       },
                     })
                   }
+                  helperText="Total number of workers"
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Average Salary"
+                  label="Average Salary (₹)"
                   type="number"
                   value={formData.labourCost.averageSalary || ""}
                   onChange={(e) =>
@@ -593,6 +708,10 @@ const BatchCostCalculatorPage: React.FC = () => {
                       },
                     })
                   }
+                  InputProps={{
+                    startAdornment: <span style={{ marginRight: 4 }}>₹</span>,
+                  }}
+                  helperText="Average wage per worker"
                 />
               </Grid>
             </Grid>
@@ -607,7 +726,7 @@ const BatchCostCalculatorPage: React.FC = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="No. of Units Used"
+                  label="No. of Units Used (kWh)"
                   type="number"
                   value={formData.electricityCost.unitsUsed || ""}
                   onChange={(e) =>
@@ -619,12 +738,13 @@ const BatchCostCalculatorPage: React.FC = () => {
                       },
                     })
                   }
+                  helperText="Electricity consumed in kilowatt-hours"
                 />
               </Grid>
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Cost per Unit"
+                  label="Cost per Unit (₹/kWh)"
                   type="number"
                   value={formData.electricityCost.costPerUnit || ""}
                   onChange={(e) =>
@@ -636,6 +756,10 @@ const BatchCostCalculatorPage: React.FC = () => {
                       },
                     })
                   }
+                  InputProps={{
+                    startAdornment: <span style={{ marginRight: 4 }}>₹</span>,
+                  }}
+                  helperText="Rate per kilowatt-hour"
                 />
               </Grid>
             </Grid>
@@ -650,7 +774,7 @@ const BatchCostCalculatorPage: React.FC = () => {
               <Grid item xs={12} md={6}>
                 <TextField
                   fullWidth
-                  label="Unit Cost"
+                  label="Unit Cost (₹)"
                   type="number"
                   value={formData.packagingCost.unitCost || ""}
                   onChange={(e) =>
@@ -662,23 +786,10 @@ const BatchCostCalculatorPage: React.FC = () => {
                       },
                     })
                   }
-                />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  fullWidth
-                  label="No. of Units Used"
-                  type="number"
-                  value={formData.packagingCost.numberOfUnits || ""}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      packagingCost: {
-                        ...formData.packagingCost,
-                        numberOfUnits: Number(e.target.value),
-                      },
-                    })
-                  }
+                  InputProps={{
+                    startAdornment: <span style={{ marginRight: 4 }}>₹</span>,
+                  }}
+                  helperText="Cost per packaging unit (already per unit)"
                 />
               </Grid>
             </Grid>
@@ -701,7 +812,7 @@ const BatchCostCalculatorPage: React.FC = () => {
               <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
-                  label="Fuel Cost"
+                  label="Fuel Cost (₹)"
                   type="number"
                   value={formData.transportationCost.fuelCost || ""}
                   onChange={(e) =>
@@ -713,6 +824,9 @@ const BatchCostCalculatorPage: React.FC = () => {
                       },
                     })
                   }
+                  InputProps={{
+                    startAdornment: <span style={{ marginRight: 4 }}>₹</span>,
+                  }}
                 />
               </Grid>
               <Grid item xs={12} md={4}>
@@ -730,12 +844,13 @@ const BatchCostCalculatorPage: React.FC = () => {
                       },
                     })
                   }
+                  helperText="For reference only (not included in calculation)"
                 />
               </Grid>
               <Grid item xs={12} md={4}>
                 <TextField
                   fullWidth
-                  label="Cost of Driver"
+                  label="Cost of Driver (₹)"
                   type="number"
                   value={formData.transportationCost.driverCost || ""}
                   onChange={(e) =>
@@ -747,6 +862,9 @@ const BatchCostCalculatorPage: React.FC = () => {
                       },
                     })
                   }
+                  InputProps={{
+                    startAdornment: <span style={{ marginRight: 4 }}>₹</span>,
+                  }}
                 />
               </Grid>
             </Grid>
@@ -780,7 +898,9 @@ const BatchCostCalculatorPage: React.FC = () => {
                 <TableHead>
                   <TableRow sx={{ bgcolor: "#f5f5f5" }}>
                     <TableCell sx={{ fontWeight: "bold" }}>Employee</TableCell>
-                    <TableCell sx={{ fontWeight: "bold" }}>Salary</TableCell>
+                    <TableCell sx={{ fontWeight: "bold" }}>
+                      Unit Cost (₹/unit)
+                    </TableCell>
                     <TableCell sx={{ fontWeight: "bold" }}>Action</TableCell>
                   </TableRow>
                 </TableHead>
@@ -788,33 +908,63 @@ const BatchCostCalculatorPage: React.FC = () => {
                   {formData.marketingEmployees.map((emp) => (
                     <TableRow key={emp.id}>
                       <TableCell>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          placeholder="SELECT EMPLOYEE"
-                          value={emp.employeeName}
-                          onChange={(e) =>
-                            handleMarketingEmployeeChange(
-                              emp.id,
-                              "employeeName",
-                              e.target.value,
-                            )
-                          }
-                        />
+                        <FormControl fullWidth size="small">
+                          <Select
+                            value={emp.employeeId || ""}
+                            displayEmpty
+                            onChange={(e) => {
+                              const selectedUserId = e.target.value;
+                              const selectedUser = users.find(
+                                (u) => u.id === selectedUserId,
+                              );
+
+                              // Update both employeeId and employeeName in one call
+                              setFormData({
+                                ...formData,
+                                marketingEmployees:
+                                  formData.marketingEmployees.map((employee) =>
+                                    employee.id === emp.id
+                                      ? {
+                                          ...employee,
+                                          employeeId: selectedUserId,
+                                          employeeName:
+                                            selectedUser?.name || "",
+                                        }
+                                      : employee,
+                                  ),
+                              });
+                            }}
+                          >
+                            <MenuItem value="">
+                              <em>SELECT EMPLOYEE</em>
+                            </MenuItem>
+                            {users.map((user) => (
+                              <MenuItem key={user.id} value={user.id}>
+                                {user.name} ({user.email})
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
                       </TableCell>
                       <TableCell>
                         <TextField
                           fullWidth
                           size="small"
                           type="number"
-                          value={emp.salary || ""}
+                          placeholder="COST PER UNIT"
+                          value={emp.unitCost || ""}
                           onChange={(e) =>
                             handleMarketingEmployeeChange(
                               emp.id,
-                              "salary",
+                              "unitCost",
                               Number(e.target.value),
                             )
                           }
+                          InputProps={{
+                            startAdornment: (
+                              <span style={{ marginRight: 4 }}>₹</span>
+                            ),
+                          }}
                         />
                       </TableCell>
                       <TableCell>
@@ -863,7 +1013,7 @@ const BatchCostCalculatorPage: React.FC = () => {
                   <TableRow sx={{ bgcolor: "#f5f5f5" }}>
                     <TableCell sx={{ fontWeight: "bold" }}>Item</TableCell>
                     <TableCell sx={{ fontWeight: "bold" }}>
-                      Total Cost
+                      Total Cost (₹)
                     </TableCell>
                     <TableCell sx={{ fontWeight: "bold" }}>Action</TableCell>
                   </TableRow>
@@ -899,6 +1049,11 @@ const BatchCostCalculatorPage: React.FC = () => {
                               Number(e.target.value),
                             )
                           }
+                          InputProps={{
+                            startAdornment: (
+                              <span style={{ marginRight: 4 }}>₹</span>
+                            ),
+                          }}
                         />
                       </TableCell>
                       <TableCell>
@@ -939,7 +1094,7 @@ const BatchCostCalculatorPage: React.FC = () => {
                   </Typography>
                   {formData.totalQuantityProduced > 0 && (
                     <Typography variant="body2" sx={{ mt: 1, opacity: 0.9 }}>
-                      For {formData.totalQuantityProduced} units
+                      Based on {formData.totalQuantityProduced} units
                     </Typography>
                   )}
                 </CardContent>
@@ -1155,16 +1310,16 @@ const BatchCostCalculatorPage: React.FC = () => {
                 variant="body2"
                 sx={{ fontFamily: "monospace", whiteSpace: "pre-wrap" }}
               >
-                Per Unit Cost = Total Cost ÷ Total Quantity Produced
+                Per Unit Cost = {"\n"}
+                [Σ(Raw Material Qty_kg × Unit Cost) / Total Units] + {"\n"}
+                [(No. of People × Avg Salary) / Total Units] + {"\n"}
+                [(Electricity kWh × Cost per kWh) / Total Units] + {"\n"}
+                [Packaging Unit Cost] + {"\n"}
+                [(Fuel Cost + Driver Cost) / Total Units] + {"\n"}
+                [Σ(Marketing Unit Cost per Employee)] + {"\n"}
+                [Σ(Other Expense Items)]
                 {"\n\n"}
-                Where Total Cost = {"\n"}
-                Raw Material Cost + {"\n"}
-                Labour Cost + {"\n"}
-                Electricity Cost + {"\n"}
-                Packaging Cost + {"\n"}
-                Transportation Cost + {"\n"}
-                Marketing Cost + {"\n"}
-                Other Expenses
+                Total Cost = Per Unit Cost × Total Quantity
               </Typography>
               <Divider sx={{ my: 2 }} />
               <Typography variant="body1" fontWeight="bold">
@@ -1174,8 +1329,12 @@ const BatchCostCalculatorPage: React.FC = () => {
                 variant="body2"
                 sx={{ fontFamily: "monospace", mt: 1 }}
               >
-                ₹{grandTotal.toFixed(2)} ÷ {formData.totalQuantityProduced}{" "}
-                units = ₹{perUnitCost.toFixed(2)} per unit
+                Per Unit Cost = ₹{perUnitCost.toFixed(2)}
+                {"\n"}
+                Quantity Produced = {formData.totalQuantityProduced} units
+                {"\n"}
+                Total Cost = ₹{perUnitCost.toFixed(2)} ×{" "}
+                {formData.totalQuantityProduced} = ₹{grandTotal.toFixed(2)}
               </Typography>
             </Paper>
           </Box>
@@ -1184,16 +1343,31 @@ const BatchCostCalculatorPage: React.FC = () => {
           <Button onClick={() => setAnalysisOpen(false)}>Close</Button>
           <Button
             variant="contained"
+            color="primary"
             startIcon={<SaveIcon />}
-            onClick={() => {
-              // Future: Save calculation to database
-              alert("Save functionality coming soon!");
-            }}
+            onClick={handleSave}
+            disabled={saving}
           >
-            Save Calculation
+            {saving ? "Saving..." : "Save Calculation"}
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity={snackbarSeverity}
+          sx={{ width: "100%" }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };

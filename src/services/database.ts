@@ -2,6 +2,7 @@
 import { supabase } from "../utils/supabase";
 import { DeliveryStatus, CancellationReason } from "../models/Delivery";
 import { TimesheetEntry } from "../models/Timesheet";
+import { SavedBatchCost, CostRevisionSummary } from "../models/BatchCost";
 
 interface Shop {
   id?: string;
@@ -1208,6 +1209,189 @@ class ShopDatabase {
       createdAt: new Date(entry.created_at),
       updatedAt: new Date(entry.updated_at),
     }));
+  }
+
+  // Batch Cost Calculator methods
+  async saveBatchCost(batchCost: SavedBatchCost): Promise<SavedBatchCost> {
+    const { data, error } = await supabase
+      .from("batch_costs")
+      .insert([
+        {
+          id: batchCost.id || crypto.randomUUID(),
+          product_name: batchCost.productName,
+          product_sku_id: batchCost.productSKUId,
+          calculation_date: batchCost.calculationDate.toISOString(),
+          revision_number: batchCost.revisionNumber,
+          calculated_by: batchCost.calculatedBy,
+          calculated_by_email: batchCost.calculatedByEmail,
+          total_quantity_produced: batchCost.totalQuantityProduced,
+          raw_materials: JSON.stringify(batchCost.rawMaterials),
+          labour_cost: JSON.stringify(batchCost.labourCost),
+          electricity_cost: JSON.stringify(batchCost.electricityCost),
+          packaging_cost: JSON.stringify(batchCost.packagingCost),
+          transportation_cost: JSON.stringify(batchCost.transportationCost),
+          marketing_employees: JSON.stringify(batchCost.marketingEmployees),
+          other_expenses: JSON.stringify(batchCost.otherExpenses),
+          total_raw_material_cost: batchCost.totalRawMaterialCost,
+          total_labour_cost: batchCost.totalLabourCost,
+          total_electricity_cost: batchCost.totalElectricityCost,
+          total_packaging_cost: batchCost.totalPackagingCost,
+          total_transportation_cost: batchCost.totalTransportationCost,
+          total_marketing_cost: batchCost.totalMarketingCost,
+          total_other_expenses: batchCost.totalOtherExpenses,
+          grand_total: batchCost.grandTotal,
+          per_unit_cost: batchCost.perUnitCost,
+          notes: batchCost.notes,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return this.mapBatchCostFromDB(data);
+  }
+
+  async getAllBatchCosts(): Promise<SavedBatchCost[]> {
+    const { data, error } = await supabase
+      .from("batch_costs")
+      .select("*")
+      .order("calculation_date", { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map((item: any) => this.mapBatchCostFromDB(item));
+  }
+
+  async getBatchCostsByProduct(productName: string): Promise<SavedBatchCost[]> {
+    const { data, error } = await supabase
+      .from("batch_costs")
+      .select("*")
+      .eq("product_name", productName)
+      .order("revision_number", { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map((item: any) => this.mapBatchCostFromDB(item));
+  }
+
+  async getLatestRevisionNumber(productName: string): Promise<number> {
+    const { data, error } = await supabase
+      .from("batch_costs")
+      .select("revision_number")
+      .eq("product_name", productName)
+      .order("revision_number", { ascending: false })
+      .limit(1)
+      .single();
+
+    if (error) {
+      if (error.code === "PGRST116") return 0; // No records found
+      throw error;
+    }
+
+    return data.revision_number;
+  }
+
+  async getCostRevisionSummaries(): Promise<CostRevisionSummary[]> {
+    const { data, error } = await supabase.rpc("get_cost_revision_summaries");
+
+    if (error) {
+      // Fallback if function doesn't exist
+      const { data: allData, error: fallbackError } = await supabase
+        .from("batch_costs")
+        .select("*")
+        .order("calculation_date", { ascending: false });
+
+      if (fallbackError) throw fallbackError;
+
+      // Group by product_name
+      const grouped = new Map<string, any[]>();
+      (allData || []).forEach((item: any) => {
+        if (!grouped.has(item.product_name)) {
+          grouped.set(item.product_name, []);
+        }
+        grouped.get(item.product_name)!.push(item);
+      });
+
+      // Create summaries
+      const summaries: CostRevisionSummary[] = [];
+      grouped.forEach((items, productName) => {
+        const sortedByRevision = items.sort(
+          (a, b) => b.revision_number - a.revision_number,
+        );
+        const latest = sortedByRevision[0];
+        const oldest = sortedByRevision[sortedByRevision.length - 1];
+
+        summaries.push({
+          productName,
+          productSKUId: latest.product_sku_id,
+          totalRevisions: items.length,
+          latestRevision: latest.revision_number,
+          latestPerUnitCost: latest.per_unit_cost,
+          latestGrandTotal: latest.grand_total,
+          latestCalculationDate: new Date(latest.calculation_date),
+          firstCalculationDate: new Date(oldest.calculation_date),
+          calculatedBy: latest.calculated_by,
+        });
+      });
+
+      return summaries.sort(
+        (a, b) =>
+          b.latestCalculationDate.getTime() - a.latestCalculationDate.getTime(),
+      );
+    }
+
+    return (data || []).map((item: any) => ({
+      productName: item.product_name,
+      productSKUId: item.product_sku_id,
+      totalRevisions: item.total_revisions,
+      latestRevision: item.latest_revision,
+      latestPerUnitCost: item.latest_per_unit_cost,
+      latestGrandTotal: item.latest_grand_total,
+      latestCalculationDate: new Date(item.latest_calculation_date),
+      firstCalculationDate: new Date(item.first_calculation_date),
+      calculatedBy: item.calculated_by,
+    }));
+  }
+
+  async deleteBatchCost(id: string): Promise<void> {
+    const { error } = await supabase.from("batch_costs").delete().eq("id", id);
+
+    if (error) throw error;
+  }
+
+  private mapBatchCostFromDB(data: any): SavedBatchCost {
+    return {
+      id: data.id,
+      productName: data.product_name,
+      productSKUId: data.product_sku_id,
+      calculationDate: new Date(data.calculation_date),
+      revisionNumber: data.revision_number,
+      calculatedBy: data.calculated_by,
+      calculatedByEmail: data.calculated_by_email,
+      totalQuantityProduced: data.total_quantity_produced,
+      rawMaterials: JSON.parse(data.raw_materials),
+      labourCost: JSON.parse(data.labour_cost),
+      electricityCost: JSON.parse(data.electricity_cost),
+      packagingCost: JSON.parse(data.packaging_cost),
+      transportationCost: JSON.parse(data.transportation_cost),
+      marketingEmployees: JSON.parse(data.marketing_employees),
+      otherExpenses: JSON.parse(data.other_expenses),
+      totalRawMaterialCost: data.total_raw_material_cost,
+      totalLabourCost: data.total_labour_cost,
+      totalElectricityCost: data.total_electricity_cost,
+      totalPackagingCost: data.total_packaging_cost,
+      totalTransportationCost: data.total_transportation_cost,
+      totalMarketingCost: data.total_marketing_cost,
+      totalOtherExpenses: data.total_other_expenses,
+      grandTotal: data.grand_total,
+      perUnitCost: data.per_unit_cost,
+      notes: data.notes,
+      createdAt: new Date(data.created_at),
+      updatedAt: new Date(data.updated_at),
+    };
   }
 }
 

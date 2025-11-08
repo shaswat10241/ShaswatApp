@@ -25,6 +25,7 @@ import AnalyticsPage from "./pages/admin/AnalyticsPage";
 import TimesheetPage from "./pages/TimesheetPage";
 import AdminTimesheetPage from "./pages/admin/AdminTimesheetPage";
 import BatchCostCalculatorPage from "./pages/admin/BatchCostCalculatorPage";
+import CostManagerPage from "./pages/admin/CostManagerPage";
 
 // Components
 import AuthWrapper from "./components/auth/AuthWrapper";
@@ -204,6 +205,15 @@ function App() {
                 element={
                   <AuthWrapper requireAuth={true}>
                     <BatchCostCalculatorPage />
+                  </AuthWrapper>
+                }
+              />
+
+              <Route
+                path="/admin/cost-manager"
+                element={
+                  <AuthWrapper requireAuth={true}>
+                    <CostManagerPage />
                   </AuthWrapper>
                 }
               />
