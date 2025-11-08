@@ -29,6 +29,7 @@ import PeopleIcon from "@mui/icons-material/People";
 import BarChartIcon from "@mui/icons-material/BarChart";
 import SettingsIcon from "@mui/icons-material/Settings";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import CalculateIcon from "@mui/icons-material/Calculate";
 
 import { useUser, useClerk } from "@clerk/clerk-react";
 import { useUserStore } from "../services/userStore";
@@ -892,6 +893,79 @@ const HomePage: React.FC = () => {
                       }}
                     >
                       VIEW TIMESHEETS
+                    </Button>
+                  </Box>
+                </Paper>
+              </Grid>
+
+              {/* Batch Cost Calculator Card */}
+              <Grid item xs={12} sm={6} md={4}>
+                <Paper
+                  elevation={0}
+                  sx={{
+                    height: "100%",
+                    borderRadius: 2,
+                    bgcolor: "white",
+                    boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+                    cursor: "pointer",
+                    transition: "transform 0.3s ease, box-shadow 0.3s ease",
+                    "&:hover": {
+                      transform: "translateY(-5px)",
+                      boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
+                    },
+                  }}
+                  onClick={() => navigate("/admin/batch-cost-calculator")}
+                >
+                  <Box
+                    sx={{
+                      height: "100%",
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      p: 4,
+                      textAlign: "center",
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        width: 80,
+                        height: 80,
+                        borderRadius: "50%",
+                        bgcolor: "#ff9800",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        mb: 3,
+                      }}
+                    >
+                      <CalculateIcon sx={{ fontSize: 40, color: "white" }} />
+                    </Box>
+                    <Typography variant="h5" fontWeight="600" gutterBottom>
+                      Batch Cost Calculator
+                    </Typography>
+                    <Typography
+                      variant="body1"
+                      color="text.secondary"
+                      sx={{ mb: 3 }}
+                    >
+                      Calculate product unit costs
+                    </Typography>
+                    <Button
+                      variant="contained"
+                      size="large"
+                      startIcon={<CalculateIcon />}
+                      sx={{
+                        px: 4,
+                        py: 1.25,
+                        borderRadius: 8,
+                        textTransform: "uppercase",
+                        fontWeight: 600,
+                        bgcolor: "#ff9800",
+                        "&:hover": { bgcolor: "#f57c00" },
+                      }}
+                    >
+                      CALCULATE COSTS
                     </Button>
                   </Box>
                 </Paper>
