@@ -44,6 +44,7 @@ import { useUser, useClerk } from "@clerk/clerk-react";
 import { useOrderStore } from "../../services/orderStore";
 import { useShopStore } from "../../services/shopStore";
 import { useUserStore, User } from "../../services/userStore";
+import { useDeliveryStore } from "../../services/deliveryStore";
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -74,6 +75,7 @@ const AnalyticsPage: React.FC = () => {
   const { isAdmin, users, fetchAllUsers } = useUserStore();
   const { orders, fetchOrders } = useOrderStore();
   const { shops, fetchShops } = useShopStore();
+  const { deliveries, fetchDeliveries } = useDeliveryStore();
 
   const [tabValue, setTabValue] = useState(0);
   const [salesPeriod, setSalesPeriod] = useState("monthly");
@@ -93,7 +95,15 @@ const AnalyticsPage: React.FC = () => {
     fetchOrders();
     fetchShops();
     fetchAllUsers();
-  }, [isAdmin, navigate, fetchOrders, fetchShops, fetchAllUsers]);
+    fetchDeliveries();
+  }, [
+    isAdmin,
+    navigate,
+    fetchOrders,
+    fetchShops,
+    fetchAllUsers,
+    fetchDeliveries,
+  ]);
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -227,10 +237,15 @@ const AnalyticsPage: React.FC = () => {
     document.body.removeChild(link);
   };
 
-  // Calculate sales data
+  // Calculate sales data (exclude cancelled orders)
   const calculateSalesData = () => {
     const now = new Date();
-    let filteredOrders = [...orders];
+    // Filter out cancelled orders
+    const activeOrders = orders.filter((order) => {
+      const delivery = deliveries.find((d) => d.orderId === order.id);
+      return !delivery || delivery.status !== "Cancelled";
+    });
+    let filteredOrders = [...activeOrders];
 
     switch (salesPeriod) {
       case "daily":
@@ -272,10 +287,15 @@ const AnalyticsPage: React.FC = () => {
     return { totalSales, totalOrders, averageOrderValue };
   };
 
-  // Calculate product performance
+  // Calculate product performance (exclude cancelled orders)
   const calculateProductPerformance = () => {
     const now = new Date();
-    let filteredOrders = [...orders];
+    // Filter out cancelled orders
+    const activeOrders = orders.filter((order) => {
+      const delivery = deliveries.find((d) => d.orderId === order.id);
+      return !delivery || delivery.status !== "Cancelled";
+    });
+    let filteredOrders = [...activeOrders];
 
     switch (productPeriod) {
       case "monthly":
@@ -326,8 +346,17 @@ const AnalyticsPage: React.FC = () => {
     return Object.values(productStats).sort((a, b) => b.revenue - a.revenue);
   };
 
-  // Calculate employee sales using real order data with employee_id
+  // Calculate employee sales using real order data with employee_id (exclude cancelled orders)
   const calculateEmployeeSales = () => {
+    // Filter out cancelled orders
+    const activeOrders = orders.filter((order) => {
+      const delivery = deliveries.find((d) => d.orderId === order.id);
+      return !delivery || delivery.status !== "Cancelled";
+    });
+
+    // Use filtered orders for employee calculations
+    const ordersToUse = activeOrders;
+
     const employeeStats: {
       [key: string]: {
         employeeId: string;
@@ -339,8 +368,8 @@ const AnalyticsPage: React.FC = () => {
       };
     } = {};
 
-    // Filter orders by period
-    const filteredOrders = orders.filter((order) => {
+    // Filter orders by period (use activeOrders instead of all orders)
+    const filteredOrders = ordersToUse.filter((order) => {
       const orderDate = new Date(order.createdAt);
       if (employeePeriod === "today") {
         return orderDate.toDateString() === new Date().toDateString();
@@ -389,12 +418,18 @@ const AnalyticsPage: React.FC = () => {
     return employeeArray.sort((a, b) => b.revenue - a.revenue);
   };
 
-  // Calculate daily order summary
+  // Calculate daily order summary (exclude cancelled orders)
   const calculateDailyOrderSummary = () => {
     const selectedDateObj = new Date(selectedDate);
 
+    // Filter out cancelled orders
+    const activeOrders = orders.filter((order) => {
+      const delivery = deliveries.find((d) => d.orderId === order.id);
+      return !delivery || delivery.status !== "Cancelled";
+    });
+
     // Filter orders for the selected date
-    const filteredOrders = orders.filter((order) => {
+    const filteredOrders = activeOrders.filter((order) => {
       const orderDate = new Date(order.createdAt);
       return orderDate.toDateString() === selectedDateObj.toDateString();
     });
@@ -449,9 +484,13 @@ const AnalyticsPage: React.FC = () => {
 
         // Add quantities based on unit type
         if (item.unitType === "packet") {
-          preparationSummary[skuId].packetQty = Number(preparationSummary[skuId].packetQty || 0) + Number(item.quantity || 0);
+          preparationSummary[skuId].packetQty =
+            Number(preparationSummary[skuId].packetQty || 0) +
+            Number(item.quantity || 0);
         } else if (item.unitType === "box") {
-          preparationSummary[skuId].boxQty = Number(preparationSummary[skuId].boxQty || 0) + Number(item.quantity || 0);
+          preparationSummary[skuId].boxQty =
+            Number(preparationSummary[skuId].boxQty || 0) +
+            Number(item.quantity || 0);
         }
       });
     });

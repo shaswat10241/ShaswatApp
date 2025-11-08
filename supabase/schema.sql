@@ -153,13 +153,14 @@ CREATE TABLE IF NOT EXISTS deliveries (
   id TEXT PRIMARY KEY,
   order_id TEXT NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
   shop_id TEXT NOT NULL REFERENCES shops(id) ON DELETE CASCADE,
-  status TEXT NOT NULL CHECK (status IN ('Packaging', 'Transit', 'ShipToOutlet', 'OutForDelivery', 'Delivered')),
+  status TEXT NOT NULL CHECK (status IN ('Packaging', 'Transit', 'ShipToOutlet', 'OutForDelivery', 'Delivered', 'Cancelled')),
   current_location TEXT,
   estimated_delivery_date TIMESTAMP WITH TIME ZONE,
   actual_delivery_date TIMESTAMP WITH TIME ZONE,
   tracking_number TEXT,
   delivery_notes TEXT,
   status_history JSONB NOT NULL,
+  cancellation_reason JSONB,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );

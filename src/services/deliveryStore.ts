@@ -24,7 +24,7 @@ interface DeliveryStore {
     deliveryId: string,
     newStatus: DeliveryStatus,
     notes?: string,
-    location?: string,
+    updatedBy?: string,
   ) => Promise<Delivery>;
   setCurrentDelivery: (delivery: Delivery | null) => void;
 }
@@ -177,7 +177,7 @@ export const useDeliveryStore = create<DeliveryStore>((set, get) => ({
     deliveryId: string,
     newStatus: DeliveryStatus,
     notes?: string,
-    location?: string,
+    updatedBy?: string,
   ) => {
     try {
       set({ loading: true, error: null });
@@ -195,7 +195,8 @@ export const useDeliveryStore = create<DeliveryStore>((set, get) => ({
         status: newStatus,
         timestamp: new Date(),
         notes,
-        location: location || delivery.currentLocation,
+        location: delivery.currentLocation,
+        updatedBy,
       };
 
       const actualDeliveryDate =
@@ -204,10 +205,18 @@ export const useDeliveryStore = create<DeliveryStore>((set, get) => ({
       const updatedDelivery: Delivery = {
         ...delivery,
         status: newStatus,
-        currentLocation: location || delivery.currentLocation,
         actualDeliveryDate,
         statusHistory: [...delivery.statusHistory, statusUpdate],
         updatedAt: new Date(),
+        ...(newStatus === "Cancelled" && notes
+          ? {
+              cancellationReason: {
+                reason: notes,
+                cancelledBy: updatedBy,
+                cancelledAt: new Date(),
+              },
+            }
+          : {}),
       };
 
       deliveries[deliveryIndex] = updatedDelivery;

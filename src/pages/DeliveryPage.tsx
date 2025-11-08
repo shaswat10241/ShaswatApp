@@ -28,6 +28,12 @@ import {
   InputLabel,
   Select,
   Link,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Alert,
+  Snackbar,
 } from "@mui/material";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
 import SearchIcon from "@mui/icons-material/Search";
@@ -38,6 +44,7 @@ import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import PendingIcon from "@mui/icons-material/Pending";
 import DeliveryDiningIcon from "@mui/icons-material/DeliveryDining";
+import CancelIcon from "@mui/icons-material/Cancel";
 
 import { useUser, useClerk } from "@clerk/clerk-react";
 import { useShopStore } from "../services/shopStore";
@@ -95,6 +102,16 @@ const DeliveryPage: React.FC = () => {
   const { shops, fetchShops } = useShopStore();
   const { orders, fetchOrders } = useOrderStore();
   const [allDeliveries, setAllDeliveries] = useState<Delivery[]>([]);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [selectedDelivery, setSelectedDelivery] = useState<Delivery | null>(
+    null,
+  );
+  const [cancellationReason, setCancellationReason] = useState("");
+  const [snackbarOpen, setSnackbarOpen] = useState(false);
+  const [snackbarMessage, setSnackbarMessage] = useState("");
+  const [snackbarSeverity, setSnackbarSeverity] = useState<"success" | "error">(
+    "success",
+  );
 
   useEffect(() => {
     const loadData = async () => {
@@ -139,6 +156,46 @@ const DeliveryPage: React.FC = () => {
       setAllDeliveries(useDeliveryStore.getState().deliveries);
     } catch (error) {
       console.error("Error updating delivery status:", error);
+    }
+  };
+
+  const handleOpenCancelDialog = (delivery: Delivery) => {
+    setSelectedDelivery(delivery);
+    setCancelDialogOpen(true);
+  };
+
+  const handleCloseCancelDialog = () => {
+    setCancelDialogOpen(false);
+    setSelectedDelivery(null);
+    setCancellationReason("");
+  };
+
+  const handleCancelOrder = async () => {
+    if (!selectedDelivery || !cancellationReason.trim()) {
+      setSnackbarMessage("Please provide a cancellation reason");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
+      return;
+    }
+
+    try {
+      await updateDeliveryStatus(
+        selectedDelivery.id || "",
+        "Cancelled",
+        cancellationReason,
+        user?.fullName || user?.firstName || "User",
+      );
+
+      setAllDeliveries(useDeliveryStore.getState().deliveries);
+      setSnackbarMessage("Order cancelled successfully");
+      setSnackbarSeverity("success");
+      setSnackbarOpen(true);
+      handleCloseCancelDialog();
+    } catch (error) {
+      console.error("Error cancelling order:", error);
+      setSnackbarMessage("Failed to cancel order");
+      setSnackbarSeverity("error");
+      setSnackbarOpen(true);
     }
   };
 
@@ -300,6 +357,8 @@ const DeliveryPage: React.FC = () => {
             <Tabs
               value={tabValue}
               onChange={handleTabChange}
+              variant="scrollable"
+              scrollButtons="auto"
               aria-label="delivery tabs"
               indicatorColor="primary"
               textColor="primary"
@@ -315,6 +374,7 @@ const DeliveryPage: React.FC = () => {
               {DELIVERY_PHASES.map((phase) => (
                 <Tab key={phase} label={DeliveryStatusLabels[phase]} />
               ))}
+              <Tab label="Cancelled" sx={{ color: "error.main" }} />
             </Tabs>
           </Box>
 
@@ -360,6 +420,7 @@ const DeliveryPage: React.FC = () => {
                         {DeliveryStatusLabels[phase]}
                       </MenuItem>
                     ))}
+                    <MenuItem value="Cancelled">Cancelled</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -373,6 +434,7 @@ const DeliveryPage: React.FC = () => {
                 getShopName={getShopName}
                 getOrderDetails={getOrderDetails}
                 onStatusUpdate={handleStatusUpdate}
+                onCancelOrder={handleOpenCancelDialog}
               />
             </TabPanel>
 
@@ -387,9 +449,24 @@ const DeliveryPage: React.FC = () => {
                   getShopName={getShopName}
                   getOrderDetails={getOrderDetails}
                   onStatusUpdate={handleStatusUpdate}
+                  onCancelOrder={handleOpenCancelDialog}
                 />
               </TabPanel>
             ))}
+
+            {/* Cancelled Tab */}
+            <TabPanel value={tabValue} index={DELIVERY_PHASES.length + 1}>
+              <DeliveryTable
+                deliveries={filteredDeliveries.filter(
+                  (d) => d.status === "Cancelled",
+                )}
+                getStatusChip={getStatusChip}
+                getShopName={getShopName}
+                getOrderDetails={getOrderDetails}
+                onStatusUpdate={handleStatusUpdate}
+                onCancelOrder={handleOpenCancelDialog}
+              />
+            </TabPanel>
           </Box>
         </Paper>
 
@@ -459,9 +536,84 @@ const DeliveryPage: React.FC = () => {
                 </Typography>
               </Box>
             </Grid>
+            <Grid item xs={6} md={3}>
+              <Box sx={{ textAlign: "center", p: 2 }}>
+                <Typography variant="h4" color="error.main" fontWeight="bold">
+                  {allDeliveries?.filter((d) => d.status === "Cancelled")
+                    .length || 0}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Cancelled
+                </Typography>
+              </Box>
+            </Grid>
           </Grid>
         </Paper>
       </Container>
+
+      {/* Cancel Order Dialog */}
+      <Dialog
+        open={cancelDialogOpen}
+        onClose={handleCloseCancelDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          Cancel Order
+          <Typography variant="body2" color="text.secondary">
+            Are you sure you want to cancel this delivery?
+          </Typography>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            {selectedDelivery && (
+              <Alert severity="warning" sx={{ mb: 2 }}>
+                Order ID: {selectedDelivery.orderId}
+                <br />
+                Shop: {getShopName(selectedDelivery.shopId)}
+              </Alert>
+            )}
+            <TextField
+              fullWidth
+              label="Cancellation Reason *"
+              multiline
+              rows={4}
+              value={cancellationReason}
+              onChange={(e) => setCancellationReason(e.target.value)}
+              placeholder="Please provide a reason for cancellation..."
+              helperText="Required: Explain why this order is being cancelled"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseCancelDialog}>Keep Order</Button>
+          <Button
+            onClick={handleCancelOrder}
+            variant="contained"
+            color="error"
+            startIcon={<CancelIcon />}
+            disabled={!cancellationReason.trim()}
+          >
+            Cancel Order
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Snackbar for notifications */}
+      <Snackbar
+        open={snackbarOpen}
+        autoHideDuration={4000}
+        onClose={() => setSnackbarOpen(false)}
+        anchorOrigin={{ vertical: "bottom", horizontal: "center" }}
+      >
+        <Alert
+          onClose={() => setSnackbarOpen(false)}
+          severity={snackbarSeverity}
+          sx={{ width: "100%" }}
+        >
+          {snackbarMessage}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 };
@@ -477,6 +629,7 @@ interface DeliveryTableProps {
     amount: number;
   };
   onStatusUpdate: (deliveryId: string, status: DeliveryStatus) => void;
+  onCancelOrder: (delivery: Delivery) => void;
 }
 
 const DeliveryTable: React.FC<DeliveryTableProps> = ({
@@ -485,6 +638,7 @@ const DeliveryTable: React.FC<DeliveryTableProps> = ({
   getShopName,
   getOrderDetails,
   onStatusUpdate,
+  onCancelOrder,
 }) => {
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
@@ -600,7 +754,7 @@ const DeliveryTable: React.FC<DeliveryTableProps> = ({
                       open={openMenu === delivery.id}
                       onClose={handleMenuClose}
                     >
-                      {nextStatus && (
+                      {nextStatus && delivery.status !== "Cancelled" && (
                         <MenuItem
                           onClick={() =>
                             handleStatusChange(delivery.id || "", nextStatus)
@@ -611,6 +765,40 @@ const DeliveryTable: React.FC<DeliveryTableProps> = ({
                       )}
                       <MenuItem>View Details</MenuItem>
                       <MenuItem>Contact Shop</MenuItem>
+                      {delivery.status !== "Delivered" &&
+                        delivery.status !== "Cancelled" && (
+                          <MenuItem
+                            onClick={() => {
+                              onCancelOrder(delivery);
+                              handleMenuClose();
+                            }}
+                            sx={{ color: "error.main" }}
+                          >
+                            <CancelIcon sx={{ mr: 1, fontSize: 18 }} />
+                            Cancel Order
+                          </MenuItem>
+                        )}
+                      {delivery.status === "Cancelled" &&
+                        delivery.cancellationReason && (
+                          <MenuItem disabled>
+                            <Box>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                              >
+                                Cancelled by:{" "}
+                                {delivery.cancellationReason.cancelledBy}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                display="block"
+                                color="text.secondary"
+                              >
+                                Reason: {delivery.cancellationReason.reason}
+                              </Typography>
+                            </Box>
+                          </MenuItem>
+                        )}
                     </Menu>
                   </TableCell>
                 </TableRow>

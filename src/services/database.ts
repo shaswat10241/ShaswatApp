@@ -1,6 +1,6 @@
 // Supabase Postgres database wrapper for shops, SKUs, orders, and deliveries
 import { supabase } from "../utils/supabase";
-import { DeliveryStatus } from "../models/Delivery";
+import { DeliveryStatus, CancellationReason } from "../models/Delivery";
 import { TimesheetEntry } from "../models/Timesheet";
 
 interface Shop {
@@ -78,6 +78,7 @@ interface Delivery {
   trackingNumber?: string;
   deliveryNotes?: string;
   statusHistory: StatusUpdate[];
+  cancellationReason?: CancellationReason;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -567,6 +568,9 @@ class ShopDatabase {
           tracking_number: delivery.trackingNumber,
           delivery_notes: delivery.deliveryNotes,
           status_history: JSON.stringify(delivery.statusHistory),
+          cancellation_reason: delivery.cancellationReason
+            ? JSON.stringify(delivery.cancellationReason)
+            : null,
           created_at: delivery.createdAt.toISOString(),
           updated_at: delivery.updatedAt.toISOString(),
         },
@@ -591,6 +595,9 @@ class ShopDatabase {
       trackingNumber: data.tracking_number,
       deliveryNotes: data.delivery_notes,
       statusHistory: JSON.parse(data.status_history),
+      cancellationReason: data.cancellation_reason
+        ? JSON.parse(data.cancellation_reason)
+        : undefined,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
     };
@@ -619,6 +626,9 @@ class ShopDatabase {
       trackingNumber: delivery.tracking_number,
       deliveryNotes: delivery.delivery_notes,
       statusHistory: JSON.parse(delivery.status_history),
+      cancellationReason: delivery.cancellation_reason
+        ? JSON.parse(delivery.cancellation_reason)
+        : undefined,
       createdAt: new Date(delivery.created_at),
       updatedAt: new Date(delivery.updated_at),
     }));
@@ -648,6 +658,9 @@ class ShopDatabase {
       trackingNumber: data.tracking_number,
       deliveryNotes: data.delivery_notes,
       statusHistory: JSON.parse(data.status_history),
+      cancellationReason: data.cancellation_reason
+        ? JSON.parse(data.cancellation_reason)
+        : undefined,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
     };
@@ -664,6 +677,9 @@ class ShopDatabase {
         tracking_number: delivery.trackingNumber,
         delivery_notes: delivery.deliveryNotes,
         status_history: JSON.stringify(delivery.statusHistory),
+        cancellation_reason: delivery.cancellationReason
+          ? JSON.stringify(delivery.cancellationReason)
+          : null,
         updated_at: new Date().toISOString(),
       })
       .eq("id", delivery.id)
@@ -687,6 +703,9 @@ class ShopDatabase {
       trackingNumber: data.tracking_number,
       deliveryNotes: data.delivery_notes,
       statusHistory: JSON.parse(data.status_history),
+      cancellationReason: data.cancellation_reason
+        ? JSON.parse(data.cancellation_reason)
+        : undefined,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
     };
@@ -716,9 +735,78 @@ class ShopDatabase {
       trackingNumber: data.tracking_number,
       deliveryNotes: data.delivery_notes,
       statusHistory: JSON.parse(data.status_history),
+      cancellationReason: data.cancellation_reason
+        ? JSON.parse(data.cancellation_reason)
+        : undefined,
       createdAt: new Date(data.created_at),
       updatedAt: new Date(data.updated_at),
     };
+  }
+
+  // Get active deliveries (excluding cancelled)
+  async getActiveDeliveries(): Promise<Delivery[]> {
+    const { data, error } = await supabase
+      .from("deliveries")
+      .select("*")
+      .neq("status", "Cancelled")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map((delivery: any) => ({
+      id: delivery.id,
+      orderId: delivery.order_id,
+      shopId: delivery.shop_id,
+      status: delivery.status,
+      currentLocation: delivery.current_location,
+      estimatedDeliveryDate: delivery.estimated_delivery_date
+        ? new Date(delivery.estimated_delivery_date)
+        : undefined,
+      actualDeliveryDate: delivery.actual_delivery_date
+        ? new Date(delivery.actual_delivery_date)
+        : undefined,
+      trackingNumber: delivery.tracking_number,
+      deliveryNotes: delivery.delivery_notes,
+      statusHistory: JSON.parse(delivery.status_history),
+      cancellationReason: delivery.cancellation_reason
+        ? JSON.parse(delivery.cancellation_reason)
+        : undefined,
+      createdAt: new Date(delivery.created_at),
+      updatedAt: new Date(delivery.updated_at),
+    }));
+  }
+
+  // Get cancelled deliveries
+  async getCancelledDeliveries(): Promise<Delivery[]> {
+    const { data, error } = await supabase
+      .from("deliveries")
+      .select("*")
+      .eq("status", "Cancelled")
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+
+    return (data || []).map((delivery: any) => ({
+      id: delivery.id,
+      orderId: delivery.order_id,
+      shopId: delivery.shop_id,
+      status: delivery.status,
+      currentLocation: delivery.current_location,
+      estimatedDeliveryDate: delivery.estimated_delivery_date
+        ? new Date(delivery.estimated_delivery_date)
+        : undefined,
+      actualDeliveryDate: delivery.actual_delivery_date
+        ? new Date(delivery.actual_delivery_date)
+        : undefined,
+      trackingNumber: delivery.tracking_number,
+      deliveryNotes: delivery.delivery_notes,
+      statusHistory: JSON.parse(delivery.status_history),
+      cancellationReason: delivery.cancellation_reason
+        ? JSON.parse(delivery.cancellation_reason)
+        : undefined,
+      createdAt: new Date(delivery.created_at),
+      updatedAt: new Date(delivery.updated_at),
+    }));
   }
 
   // Survey methods
