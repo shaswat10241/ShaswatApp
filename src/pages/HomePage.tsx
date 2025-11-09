@@ -61,38 +61,16 @@ const HomePage: React.FC = () => {
         const email = user.emailAddresses[0].emailAddress;
         const name = user.fullName || "User";
 
-        console.log("🔵 [HomePage] Starting user sync...");
-        console.log("Email:", email);
-        console.log("Name:", name);
-
         try {
-          const syncedUser = await syncUserFromClerk(email, name);
-          console.log("✅ [HomePage] User sync completed:", syncedUser);
+          await syncUserFromClerk(email, name);
         } catch (error) {
-          console.error("❌ [HomePage] User sync failed:", error);
-          console.error("Error details:", error);
+          console.error("Error syncing user:", error);
         }
-      } else {
-        console.log("⚠️ [HomePage] Cannot sync - missing user data:", {
-          hasEmail: !!user?.emailAddresses?.[0]?.emailAddress,
-          hasName: !!user?.fullName,
-          user: user,
-        });
       }
     };
 
     syncUser();
   }, [user, syncUserFromClerk]);
-
-  // Debug: Log current user and role status
-  useEffect(() => {
-    console.log("=== USER DEBUG INFO ===");
-    console.log("Current User:", currentUser);
-    console.log("User Role:", currentUser?.role);
-    console.log("Is Admin?:", isAdmin());
-    console.log("Clerk User Email:", user?.emailAddresses?.[0]?.emailAddress);
-    console.log("=====================");
-  }, [currentUser, isAdmin, user]);
 
   // Temporary function to promote to admin
   const promoteToAdmin = async () => {
@@ -114,17 +92,15 @@ const HomePage: React.FC = () => {
   // Manual refresh user from database
   const handleRefreshUser = async () => {
     if (user?.emailAddresses?.[0]?.emailAddress && user?.fullName) {
-      console.log("🔄 [Manual Refresh] Refreshing user...");
       try {
         const syncedUser = await syncUserFromClerk(
           user.emailAddresses[0].emailAddress,
           user.fullName || "User",
         );
-        console.log("✅ [Manual Refresh] Success:", syncedUser);
         alert(`User refreshed! Role: ${syncedUser.role}`);
         window.location.reload();
       } catch (error) {
-        console.error("❌ [Manual Refresh] Failed:", error);
+        console.error("Failed to refresh user:", error);
         alert("Failed to refresh user. Check console for details.");
       }
     } else {
@@ -280,17 +256,7 @@ const HomePage: React.FC = () => {
                       sx={{ fontWeight: 600 }}
                     />
                   )}
-                  {currentUser && currentUser.role === "employee" && (
-                    <Button
-                      variant="outlined"
-                      color="error"
-                      size="small"
-                      onClick={promoteToAdmin}
-                      sx={{ fontWeight: 600 }}
-                    >
-                      🔧 Make Me Admin
-                    </Button>
-                  )}
+                  {currentUser && currentUser.role === "employee"}
                   {!currentUser && (
                     <Button
                       variant="outlined"
