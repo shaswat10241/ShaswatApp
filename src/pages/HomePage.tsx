@@ -39,7 +39,7 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useUser();
   const { signOut } = useClerk();
-  const { currentUser, isAdmin, syncUserFromClerk, updateUser } =
+  const { currentUser, isAdmin, syncUserFromClerk } =
     useUserStore();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [directLoginUser, setDirectLoginUser] = useState<string | null>(null);
@@ -68,45 +68,8 @@ const HomePage: React.FC = () => {
         }
       }
     };
-
     syncUser();
   }, [user, syncUserFromClerk]);
-
-  // Temporary function to promote to admin
-  const promoteToAdmin = async () => {
-    if (currentUser) {
-      try {
-        const updatedUser = { ...currentUser, role: "admin" as const };
-        await updateUser(updatedUser);
-        alert("Successfully promoted to admin! Please refresh the page.");
-        window.location.reload();
-      } catch (error) {
-        console.error("Error promoting to admin:", error);
-        alert("Error promoting to admin. Check console for details.");
-      }
-    } else {
-      alert("No current user found. Please try logging in again.");
-    }
-  };
-
-  // Manual refresh user from database
-  const handleRefreshUser = async () => {
-    if (user?.emailAddresses?.[0]?.emailAddress && user?.fullName) {
-      try {
-        const syncedUser = await syncUserFromClerk(
-          user.emailAddresses[0].emailAddress,
-          user.fullName || "User",
-        );
-        alert(`User refreshed! Role: ${syncedUser.role}`);
-        window.location.reload();
-      } catch (error) {
-        console.error("Failed to refresh user:", error);
-        alert("Failed to refresh user. Check console for details.");
-      }
-    } else {
-      alert("No Clerk user found. Please log out and log in again.");
-    }
-  };
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -234,41 +197,13 @@ const HomePage: React.FC = () => {
                     below.
                   </Typography>
                 </Box>
-                <Box
-                  sx={{
-                    display: "flex",
-                    gap: 1,
-                    alignItems: "center",
-                    flexWrap: "wrap",
-                  }}
-                >
-                  {currentUser && (
-                    <Chip
-                      label={currentUser.role.toUpperCase()}
-                      color={isAdmin() ? "error" : "primary"}
-                      sx={{ fontWeight: 600 }}
-                    />
-                  )}
-                  {!currentUser && (
-                    <Chip
-                      label="NOT LOADED"
-                      color="warning"
-                      sx={{ fontWeight: 600 }}
-                    />
-                  )}
-                  {currentUser && currentUser.role === "employee"}
-                  {!currentUser && (
-                    <Button
-                      variant="outlined"
-                      color="warning"
-                      size="small"
-                      onClick={handleRefreshUser}
-                      sx={{ fontWeight: 600 }}
-                    >
-                      🔄 Load User Data
-                    </Button>
-                  )}
-                </Box>
+                {currentUser && (
+                  <Chip
+                    label={currentUser.role.toUpperCase()}
+                    color={isAdmin() ? "error" : "primary"}
+                    sx={{ fontWeight: 600 }}
+                  />
+                )}
               </Box>
             </Paper>
           </Grid>
