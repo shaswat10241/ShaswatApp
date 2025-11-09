@@ -39,7 +39,8 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useUser();
   const { signOut } = useClerk();
-  const { currentUser, isAdmin, syncUserFromClerk } = useUserStore();
+  const { currentUser, isAdmin, syncUserFromClerk, updateUser } =
+    useUserStore();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [directLoginUser, setDirectLoginUser] = useState<string | null>(null);
   const [isDirectLogin, setIsDirectLogin] = useState<boolean>(false);
@@ -55,13 +56,81 @@ const HomePage: React.FC = () => {
 
   // Sync user from Clerk to database
   useEffect(() => {
-    if (user?.emailAddresses?.[0]?.emailAddress && user?.fullName) {
-      syncUserFromClerk(
-        user.emailAddresses[0].emailAddress,
-        user.fullName || "User",
-      );
-    }
+    const syncUser = async () => {
+      if (user?.emailAddresses?.[0]?.emailAddress && user?.fullName) {
+        const email = user.emailAddresses[0].emailAddress;
+        const name = user.fullName || "User";
+
+        console.log("🔵 [HomePage] Starting user sync...");
+        console.log("Email:", email);
+        console.log("Name:", name);
+
+        try {
+          const syncedUser = await syncUserFromClerk(email, name);
+          console.log("✅ [HomePage] User sync completed:", syncedUser);
+        } catch (error) {
+          console.error("❌ [HomePage] User sync failed:", error);
+          console.error("Error details:", error);
+        }
+      } else {
+        console.log("⚠️ [HomePage] Cannot sync - missing user data:", {
+          hasEmail: !!user?.emailAddresses?.[0]?.emailAddress,
+          hasName: !!user?.fullName,
+          user: user,
+        });
+      }
+    };
+
+    syncUser();
   }, [user, syncUserFromClerk]);
+
+  // Debug: Log current user and role status
+  useEffect(() => {
+    console.log("=== USER DEBUG INFO ===");
+    console.log("Current User:", currentUser);
+    console.log("User Role:", currentUser?.role);
+    console.log("Is Admin?:", isAdmin());
+    console.log("Clerk User Email:", user?.emailAddresses?.[0]?.emailAddress);
+    console.log("=====================");
+  }, [currentUser, isAdmin, user]);
+
+  // Temporary function to promote to admin
+  const promoteToAdmin = async () => {
+    if (currentUser) {
+      try {
+        const updatedUser = { ...currentUser, role: "admin" as const };
+        await updateUser(updatedUser);
+        alert("Successfully promoted to admin! Please refresh the page.");
+        window.location.reload();
+      } catch (error) {
+        console.error("Error promoting to admin:", error);
+        alert("Error promoting to admin. Check console for details.");
+      }
+    } else {
+      alert("No current user found. Please try logging in again.");
+    }
+  };
+
+  // Manual refresh user from database
+  const handleRefreshUser = async () => {
+    if (user?.emailAddresses?.[0]?.emailAddress && user?.fullName) {
+      console.log("🔄 [Manual Refresh] Refreshing user...");
+      try {
+        const syncedUser = await syncUserFromClerk(
+          user.emailAddresses[0].emailAddress,
+          user.fullName || "User",
+        );
+        console.log("✅ [Manual Refresh] Success:", syncedUser);
+        alert(`User refreshed! Role: ${syncedUser.role}`);
+        window.location.reload();
+      } catch (error) {
+        console.error("❌ [Manual Refresh] Failed:", error);
+        alert("Failed to refresh user. Check console for details.");
+      }
+    } else {
+      alert("No Clerk user found. Please log out and log in again.");
+    }
+  };
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -189,13 +258,51 @@ const HomePage: React.FC = () => {
                     below.
                   </Typography>
                 </Box>
-                {currentUser && (
-                  <Chip
-                    label={currentUser.role.toUpperCase()}
-                    color={isAdmin() ? "error" : "primary"}
-                    sx={{ fontWeight: 600 }}
-                  />
-                )}
+                <Box
+                  sx={{
+                    display: "flex",
+                    gap: 1,
+                    alignItems: "center",
+                    flexWrap: "wrap",
+                  }}
+                >
+                  {currentUser && (
+                    <Chip
+                      label={currentUser.role.toUpperCase()}
+                      color={isAdmin() ? "error" : "primary"}
+                      sx={{ fontWeight: 600 }}
+                    />
+                  )}
+                  {!currentUser && (
+                    <Chip
+                      label="NOT LOADED"
+                      color="warning"
+                      sx={{ fontWeight: 600 }}
+                    />
+                  )}
+                  {currentUser && currentUser.role === "employee" && (
+                    <Button
+                      variant="outlined"
+                      color="error"
+                      size="small"
+                      onClick={promoteToAdmin}
+                      sx={{ fontWeight: 600 }}
+                    >
+                      🔧 Make Me Admin
+                    </Button>
+                  )}
+                  {!currentUser && (
+                    <Button
+                      variant="outlined"
+                      color="warning"
+                      size="small"
+                      onClick={handleRefreshUser}
+                      sx={{ fontWeight: 600 }}
+                    >
+                      🔄 Load User Data
+                    </Button>
+                  )}
+                </Box>
               </Box>
             </Paper>
           </Grid>
