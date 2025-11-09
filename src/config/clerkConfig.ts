@@ -7,8 +7,7 @@
 
 // For development, we're using a test key - in production this should come from environment variables
 export const clerkPublishableKey =
-  process.env.REACT_APP_CLERK_PUBLISHABLE_KEY ||
-  "pk_test_ZmxleGlibGUtbGVvcGFyZC05Ny5jbGVyay5hY2NvdW50cy5kZXYk";
+  process.env.REACT_APP_CLERK_PUBLISHABLE_KEY;
 
 /**
  * Customize the appearance of Clerk components
