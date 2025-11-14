@@ -31,6 +31,8 @@ import SettingsIcon from "@mui/icons-material/Settings";
 import AccessTimeIcon from "@mui/icons-material/AccessTime";
 import CalculateIcon from "@mui/icons-material/Calculate";
 import AssessmentIcon from "@mui/icons-material/Assessment";
+import ListAltIcon from "@mui/icons-material/ListAlt";
+import StorefrontIcon from "@mui/icons-material/Storefront";
 
 import { useUser, useClerk } from "@clerk/clerk-react";
 import { useUserStore } from "../services/userStore";
@@ -493,6 +495,152 @@ const HomePage: React.FC = () => {
                   }}
                 >
                   MANAGE DELIVERY
+                </Button>
+              </Box>
+            </Paper>
+          </Grid>
+
+          {/* Shop Details Card */}
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper
+              elevation={0}
+              sx={{
+                height: "100%",
+                borderRadius: 2,
+                bgcolor: "white",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+                cursor: "pointer",
+                transition: "transform 0.3s ease, box-shadow 0.3s ease",
+                "&:hover": {
+                  transform: "translateY(-5px)",
+                  boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
+                },
+              }}
+              onClick={() => navigate("/shops")}
+            >
+              <Box
+                sx={{
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  p: 4,
+                  textAlign: "center",
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: "50%",
+                    bgcolor: "#673ab7",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    mb: 3,
+                  }}
+                >
+                  <StorefrontIcon sx={{ fontSize: 40, color: "white" }} />
+                </Box>
+                <Typography variant="h5" fontWeight="600" gutterBottom>
+                  Shop Details
+                </Typography>
+                <Typography
+                  variant="body1"
+                  color="text.secondary"
+                  sx={{ mb: 3 }}
+                >
+                  View and manage all shops
+                </Typography>
+                <Button
+                  variant="contained"
+                  size="large"
+                  startIcon={<StorefrontIcon />}
+                  sx={{
+                    px: 4,
+                    py: 1.25,
+                    borderRadius: 8,
+                    textTransform: "uppercase",
+                    fontWeight: 600,
+                    bgcolor: "#673ab7",
+                    "&:hover": { bgcolor: "#5e35b1" },
+                  }}
+                >
+                  VIEW SHOPS
+                </Button>
+              </Box>
+            </Paper>
+          </Grid>
+
+          {/* Order Details Card */}
+          <Grid item xs={12} sm={6} md={3}>
+            <Paper
+              elevation={0}
+              sx={{
+                height: "100%",
+                borderRadius: 2,
+                bgcolor: "white",
+                boxShadow: "0 2px 10px rgba(0,0,0,0.08)",
+                cursor: "pointer",
+                transition: "transform 0.3s ease, box-shadow 0.3s ease",
+                "&:hover": {
+                  transform: "translateY(-5px)",
+                  boxShadow: "0 8px 20px rgba(0,0,0,0.12)",
+                },
+              }}
+              onClick={() => navigate("/orders")}
+            >
+              <Box
+                sx={{
+                  height: "100%",
+                  display: "flex",
+                  flexDirection: "column",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  p: 4,
+                  textAlign: "center",
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 80,
+                    height: 80,
+                    borderRadius: "50%",
+                    bgcolor: "#009688",
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    mb: 3,
+                  }}
+                >
+                  <ListAltIcon sx={{ fontSize: 40, color: "white" }} />
+                </Box>
+                <Typography variant="h5" fontWeight="600" gutterBottom>
+                  Order Details
+                </Typography>
+                <Typography
+                  variant="body1"
+                  color="text.secondary"
+                  sx={{ mb: 3 }}
+                >
+                  View and manage all orders
+                </Typography>
+                <Button
+                  variant="contained"
+                  size="large"
+                  startIcon={<ListAltIcon />}
+                  sx={{
+                    px: 4,
+                    py: 1.25,
+                    borderRadius: 8,
+                    textTransform: "uppercase",
+                    fontWeight: 600,
+                    bgcolor: "#009688",
+                    "&:hover": { bgcolor: "#00796b" },
+                  }}
+                >
+                  VIEW ORDERS
                 </Button>
               </Box>
             </Paper>

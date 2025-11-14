@@ -11,6 +11,7 @@ interface ShopStore {
   addShop: (shopData: ShopFormData) => Promise<Shop>;
   fetchShops: () => Promise<Shop[]>;
   updateShopStatus: () => Promise<void>;
+  deleteShop: (shopId: string) => Promise<void>;
   getShopsByLocation: (
     latitude: number,
     longitude: number,
@@ -99,6 +100,28 @@ export const useShopStore = create<ShopStore>((set, get) => ({
       }
 
       set({ shops: updatedShops, loading: false });
+    } catch (error) {
+      set({
+        loading: false,
+        error:
+          error instanceof Error ? error.message : "An unknown error occurred",
+      });
+      throw error;
+    }
+  },
+
+  deleteShop: async (shopId: string) => {
+    try {
+      set({ loading: true, error: null });
+
+      // Delete from database
+      await shopDB.deleteShop(shopId);
+
+      // Remove from local state
+      set((state) => ({
+        shops: state.shops.filter((shop) => shop.id !== shopId),
+        loading: false,
+      }));
     } catch (error) {
       set({
         loading: false,

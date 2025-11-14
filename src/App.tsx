@@ -14,7 +14,9 @@ import { ClerkProvider } from "@clerk/clerk-react";
 // Pages
 import HomePage from "./pages/HomePage";
 import ShopFormPage from "./pages/ShopFormPage";
+import ShopListPage from "./pages/ShopListPage";
 import OrderPage from "./pages/OrderPage";
+import OrderListPage from "./pages/OrderListPage";
 import OrderSummaryPage from "./pages/OrderSummaryPage";
 import OrderDetailPage from "./pages/OrderDetailPage";
 import DeliveryPage from "./pages/DeliveryPage";
@@ -121,10 +123,28 @@ function App() {
               />
 
               <Route
+                path="/shops"
+                element={
+                  <AuthWrapper requireAuth={true}>
+                    <ShopListPage />
+                  </AuthWrapper>
+                }
+              />
+
+              <Route
                 path="/order"
                 element={
                   <AuthWrapper requireAuth={true}>
                     <OrderPage />
+                  </AuthWrapper>
+                }
+              />
+
+              <Route
+                path="/orders"
+                element={
+                  <AuthWrapper requireAuth={true}>
+                    <OrderListPage />
                   </AuthWrapper>
                 }
               />
