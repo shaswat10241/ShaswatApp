@@ -26,6 +26,7 @@ interface OrderStore {
   fetchReturnOrders: () => Promise<ReturnOrder[]>;
   getOrderById: (orderId: string) => Order | null;
   getReturnOrderById: (returnOrderId: string) => ReturnOrder | null;
+  deleteOrder: (orderId: string) => Promise<void>;
   setCurrentOrder: (order: Order | null) => void;
   setCurrentReturnOrder: (returnOrder: ReturnOrder | null) => void;
   applyDiscount: (orderId: string, discountCode: string) => Promise<Order>;
@@ -216,6 +217,28 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
       }
     });
     return returnOrder || null;
+  },
+
+  deleteOrder: async (orderId: string) => {
+    try {
+      set({ loading: true, error: null });
+
+      // Delete from database
+      await shopDB.deleteOrder(orderId);
+
+      // Remove from local state
+      set((state) => ({
+        orders: state.orders.filter((order) => order.id !== orderId),
+        loading: false,
+      }));
+    } catch (error) {
+      set({
+        loading: false,
+        error:
+          error instanceof Error ? error.message : "An unknown error occurred",
+      });
+      throw error;
+    }
   },
 
   setCurrentOrder: (order: Order | null) => {
