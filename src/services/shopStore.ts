@@ -10,8 +10,10 @@ interface ShopStore {
   // Actions
   addShop: (shopData: ShopFormData) => Promise<Shop>;
   fetchShops: () => Promise<Shop[]>;
+  updateShop: (shopId: string, shopData: Partial<ShopFormData>) => Promise<Shop>;
   updateShopStatus: () => Promise<void>;
   deleteShop: (shopId: string) => Promise<void>;
+  getShopById: (shopId: string) => Shop | undefined;
   getShopsByLocation: (
     latitude: number,
     longitude: number,
@@ -73,6 +75,45 @@ export const useShopStore = create<ShopStore>((set, get) => ({
       });
       throw error;
     }
+  },
+
+  updateShop: async (shopId: string, shopData: Partial<ShopFormData>) => {
+    try {
+      set({ loading: true, error: null });
+
+      const existingShop = get().shops.find((s) => s.id === shopId);
+      if (!existingShop) {
+        throw new Error("Shop not found");
+      }
+
+      const updatedShop: Shop = {
+        ...existingShop,
+        ...shopData,
+      };
+
+      // Update in IndexedDB
+      await shopDB.updateShop(updatedShop);
+
+      set((state) => ({
+        shops: state.shops.map((shop) =>
+          shop.id === shopId ? updatedShop : shop
+        ),
+        loading: false,
+      }));
+
+      return updatedShop;
+    } catch (error) {
+      set({
+        loading: false,
+        error:
+          error instanceof Error ? error.message : "An unknown error occurred",
+      });
+      throw error;
+    }
+  },
+
+  getShopById: (shopId: string) => {
+    return get().shops.find((shop) => shop.id === shopId);
   },
 
   updateShopStatus: async () => {

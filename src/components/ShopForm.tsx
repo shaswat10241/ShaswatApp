@@ -19,7 +19,7 @@ import {
   IconButton,
   InputAdornment,
 } from "@mui/material";
-import { ShopFormData } from "../models/Shop";
+import { Shop, ShopFormData } from "../models/Shop";
 import { useShopStore } from "../services/shopStore";
 import MyLocationIcon from "@mui/icons-material/MyLocation";
 import LocationOnIcon from "@mui/icons-material/LocationOn";
@@ -30,9 +30,14 @@ interface Location {
   address: string;
 }
 
-const ShopForm: React.FC = () => {
+interface ShopFormProps {
+  shop?: Shop;
+  isEdit?: boolean;
+}
+
+const ShopForm: React.FC<ShopFormProps> = ({ shop, isEdit = false }) => {
   const navigate = useNavigate();
-  const { addShop, loading } = useShopStore();
+  const { addShop, updateShop, loading } = useShopStore();
   const [locationLoading, setLocationLoading] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [currentLocation, setCurrentLocation] = useState<Location | null>(null);
@@ -44,14 +49,25 @@ const ShopForm: React.FC = () => {
     setValue,
   } = useForm<ShopFormData>({
     defaultValues: {
-      name: "",
-      location: "",
-      phoneNumber: "",
-      category: "retailer",
-      latitude: undefined,
-      longitude: undefined,
+      name: shop?.name || "",
+      location: shop?.location || "",
+      phoneNumber: shop?.phoneNumber || "",
+      category: shop?.category || "retailer",
+      latitude: shop?.latitude || undefined,
+      longitude: shop?.longitude || undefined,
     },
   });
+
+  // Set initial location when editing
+  useEffect(() => {
+    if (isEdit && shop?.latitude && shop?.longitude) {
+      setCurrentLocation({
+        latitude: shop.latitude,
+        longitude: shop.longitude,
+        address: shop.location,
+      });
+    }
+  }, [isEdit, shop]);
 
   const getGeolocation = async () => {
     setLocationLoading(true);
@@ -141,31 +157,42 @@ const ShopForm: React.FC = () => {
     }
   };
 
-  // Try to get location when component mounts
+  // Try to get location when component mounts (only for new shops)
   useEffect(() => {
-    getGeolocation();
+    if (!isEdit) {
+      getGeolocation();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [isEdit]);
 
   const onSubmit = async (data: ShopFormData) => {
     try {
-      // Add the latitude and longitude to the submission
-      await addShop({
+      const shopData = {
         ...data,
-        latitude: currentLocation?.latitude || undefined,
-        longitude: currentLocation?.longitude || undefined,
-      });
-      // After successful submission, navigate back to home page or shops list
-      navigate("/");
+        latitude: currentLocation?.latitude || data.latitude || undefined,
+        longitude: currentLocation?.longitude || data.longitude || undefined,
+      };
+
+      if (isEdit && shop?.id) {
+        // Update existing shop
+        await updateShop(shop.id, shopData);
+        // After successful update, navigate to shop detail page
+        navigate(`/shop-detail/${shop.id}`);
+      } else {
+        // Create new shop
+        await addShop(shopData);
+        // After successful creation, navigate back to home page or shops list
+        navigate("/");
+      }
     } catch (error) {
-      console.error("Error creating shop:", error);
+      console.error(`Error ${isEdit ? "updating" : "creating"} shop:`, error);
     }
   };
 
   return (
     <Paper className="form-container">
       <Typography variant="h5" component="h2" gutterBottom>
-        Create New Shop
+        {isEdit ? "Edit Shop" : "Create New Shop"}
       </Typography>
 
       <form onSubmit={handleSubmit(onSubmit)}>
@@ -308,7 +335,7 @@ const ShopForm: React.FC = () => {
             <Button
               type="button"
               variant="outlined"
-              onClick={() => navigate("/")}
+              onClick={() => navigate(isEdit && shop?.id ? `/shop-detail/${shop.id}` : "/")}
               sx={{ mr: 2 }}
             >
               Cancel
@@ -319,7 +346,9 @@ const ShopForm: React.FC = () => {
               color="primary"
               disabled={loading}
             >
-              {loading ? "Creating..." : "Create Shop"}
+              {loading
+                ? (isEdit ? "Updating..." : "Creating...")
+                : (isEdit ? "Update Shop" : "Create Shop")}
             </Button>
           </Box>
         </Stack>

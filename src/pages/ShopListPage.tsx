@@ -38,6 +38,7 @@ import {
   Storefront as StorefrontIcon,
   Phone as PhoneIcon,
   LocationOn as LocationOnIcon,
+  Visibility as VisibilityIcon,
 } from "@mui/icons-material";
 import { useShopStore } from "../services/shopStore";
 import { Shop } from "../models/Shop";
@@ -306,9 +307,18 @@ const ShopListPage: React.FC = () => {
                     </TableCell>
                     <TableCell align="center">
                       <IconButton
+                        color="primary"
+                        onClick={() => navigate(`/shop-detail/${shop.id}`)}
+                        size="small"
+                        title="View Details"
+                      >
+                        <VisibilityIcon />
+                      </IconButton>
+                      <IconButton
                         color="error"
                         onClick={() => handleDeleteClick(shop)}
                         size="small"
+                        title="Delete"
                       >
                         <DeleteIcon />
                       </IconButton>
