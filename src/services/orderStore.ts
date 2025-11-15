@@ -21,6 +21,7 @@ interface OrderStore {
   // Actions
   fetchSKUs: () => Promise<SKU[]>;
   createOrder: (orderData: OrderFormData) => Promise<Order>;
+  updateOrder: (orderId: string, orderData: OrderFormData) => Promise<Order>;
   createReturnOrder: (returnData: ReturnOrderFormData) => Promise<ReturnOrder>;
   fetchOrders: () => Promise<Order[]>;
   fetchReturnOrders: () => Promise<ReturnOrder[]>;
@@ -102,6 +103,60 @@ export const useOrderStore = create<OrderStore>((set, get) => ({
       }));
 
       return newOrder;
+    } catch (error) {
+      set({
+        loading: false,
+        error:
+          error instanceof Error ? error.message : "An unknown error occurred",
+      });
+      throw error;
+    }
+  },
+
+  updateOrder: async (orderId: string, orderData: OrderFormData) => {
+    try {
+      set({ loading: true, error: null });
+
+      const existingOrder = get().orders.find((o) => o.id === orderId);
+      if (!existingOrder) {
+        throw new Error("Order not found");
+      }
+
+      // Recalculate totals
+      let totalAmount = 0;
+      orderData.orderItems.forEach((item) => {
+        const pricePerUnit =
+          item.unitType === "box" ? item.sku.boxPrice : item.sku.price;
+        totalAmount += pricePerUnit * item.quantity;
+      });
+
+      let discountAmount = 0;
+      if (orderData.discountCode) {
+        discountAmount = Math.round(totalAmount * 0.1);
+      }
+
+      const finalAmount = totalAmount - discountAmount;
+
+      const updatedOrder: Order = {
+        ...existingOrder,
+        ...orderData,
+        totalAmount,
+        discountAmount,
+        finalAmount,
+      };
+
+      // Update in IndexedDB
+      await shopDB.updateOrder(updatedOrder);
+
+      set((state) => ({
+        orders: state.orders.map((order) =>
+          order.id === orderId ? updatedOrder : order
+        ),
+        currentOrder: updatedOrder,
+        loading: false,
+      }));
+
+      return updatedOrder;
     } catch (error) {
       set({
         loading: false,

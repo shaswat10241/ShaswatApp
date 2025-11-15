@@ -160,6 +160,15 @@ function App() {
               />
 
               <Route
+                path="/order/:orderId/edit"
+                element={
+                  <AuthWrapper requireAuth={true}>
+                    <OrderPage />
+                  </AuthWrapper>
+                }
+              />
+
+              <Route
                 path="/orders"
                 element={
                   <AuthWrapper requireAuth={true}>

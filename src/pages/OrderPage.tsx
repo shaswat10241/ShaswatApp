@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import {
   Container,
   Typography,
@@ -7,16 +7,44 @@ import {
   Toolbar,
   IconButton,
   Avatar,
+  CircularProgress,
 } from "@mui/material";
 import OrderForm from "../components/OrderForm";
 import ArrowBackIcon from "@mui/icons-material/ArrowBack";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import { useUser } from "@clerk/clerk-react";
 import PersonIcon from "@mui/icons-material/Person";
+import { useOrderStore } from "../services/orderStore";
+import { Order } from "../models/Order";
 
 const OrderPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useUser();
+  const { orderId } = useParams<{ orderId: string }>();
+  const { getOrderById, fetchOrders } = useOrderStore();
+  const [order, setOrder] = useState<Order | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  const isEdit = !!orderId;
+
+  useEffect(() => {
+    const loadData = async () => {
+      if (isEdit) {
+        setLoading(true);
+        await fetchOrders();
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [isEdit, fetchOrders]);
+
+  useEffect(() => {
+    if (isEdit && orderId) {
+      const foundOrder = getOrderById(orderId);
+      setOrder(foundOrder || null);
+    }
+  }, [isEdit, orderId, getOrderById]);
 
   return (
     <Box sx={{ display: "flex", flexDirection: "column", minHeight: "100vh" }}>
@@ -51,23 +79,40 @@ const OrderPage: React.FC = () => {
       <Container maxWidth="md" sx={{ py: 4, flexGrow: 1 }}>
         <Box sx={{ display: "flex", alignItems: "center", mb: 3 }}>
           <IconButton
-            onClick={() => navigate("/dashboard")}
+            onClick={() => navigate(isEdit && orderId ? `/order-detail/${orderId}` : "/dashboard")}
             sx={{ mr: 2 }}
-            aria-label="back to dashboard"
+            aria-label={isEdit ? "back to order details" : "back to dashboard"}
           >
             <ArrowBackIcon />
           </IconButton>
           <Box>
             <Typography variant="h4" component="h1" fontWeight="bold">
-              Create New Order
+              {isEdit ? "Edit Order" : "Create New Order"}
             </Typography>
             <Typography variant="subtitle1" color="text.secondary">
-              Add a new order with SKUs and quantities
+              {isEdit
+                ? "Update the order details"
+                : "Add a new order with SKUs and quantities"}
             </Typography>
           </Box>
         </Box>
 
-        <OrderForm />
+        {loading ? (
+          <Box sx={{ display: "flex", justifyContent: "center", py: 4 }}>
+            <CircularProgress />
+          </Box>
+        ) : isEdit && !order ? (
+          <Box sx={{ textAlign: "center", py: 4 }}>
+            <Typography variant="h6" color="text.secondary">
+              Order not found
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              The order you're trying to edit doesn't exist.
+            </Typography>
+          </Box>
+        ) : (
+          <OrderForm order={order || undefined} isEdit={isEdit} />
+        )}
       </Container>
     </Box>
   );
