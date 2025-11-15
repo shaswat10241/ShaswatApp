@@ -429,8 +429,8 @@ const AnalyticsPage: React.FC = () => {
         employeeStats[employeeId].revenue += order.finalAmount;
 
         // Calculate total units from order items
-        const orderUnits = order.orderItems.reduce((sum, item) => sum + item.quantity, 0);
-        employeeStats[employeeId].totalUnits += orderUnits;
+        const orderUnits = order.orderItems.reduce((sum, item) => sum + Number(item.quantity), 0);
+        employeeStats[employeeId].totalUnits += Number(orderUnits);
       }
     });
 
