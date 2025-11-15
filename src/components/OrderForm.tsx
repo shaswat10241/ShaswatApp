@@ -141,29 +141,26 @@ const OrderForm: React.FC<OrderFormProps> = ({ order, isEdit = false }) => {
             name="shopId"
             control={control}
             rules={{ required: "Shop is required" }}
-            render={({ field }) => (
+            render={({ field: { onChange, value } }) => (
               <FormControl error={!!errors.shopId} fullWidth>
                 <FormLabel>Shop</FormLabel>
-                <Select
-                  {...field}
-                  displayEmpty
-                  onChange={(e) => {
-                    field.onChange(e);
-                  }}
-                >
-                  <MenuItem value="" disabled>
-                    Select a shop
-                  </MenuItem>
-                  {shops.map((shop) => (
-                    <MenuItem key={shop.id} value={shop.id}>
-                      {shop.name} - {shop.location}
-                      {shop.isNew && " (New)"}
-                    </MenuItem>
-                  ))}
-                </Select>
-                {errors.shopId && (
-                  <FormHelperText error>{errors.shopId.message}</FormHelperText>
-                )}
+                <Autocomplete
+                  options={shops}
+                  getOptionLabel={(option) =>
+                    `${option.name} - ${option.location}${option.isNew ? " (New)" : ""}`
+                  }
+                  value={shops.find((shop) => shop.id === value) || null}
+                  onChange={(_, newValue) => onChange(newValue?.id || "")}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      placeholder="Search and select a shop"
+                      error={!!errors.shopId}
+                      helperText={errors.shopId?.message}
+                    />
+                  )}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
+                />
               </FormControl>
             )}
           />
@@ -183,24 +180,36 @@ const OrderForm: React.FC<OrderFormProps> = ({ order, isEdit = false }) => {
                     control={control}
                     rules={{ required: "SKU is required" }}
                     render={({ field: { onChange, value } }) => (
-                      <Autocomplete
-                        options={skus}
-                        getOptionLabel={(option) =>
-                          `${option.id} - ${option.name}`
-                        }
-                        value={value}
-                        onChange={(_, newValue) => onChange(newValue)}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            label="SKU"
-                            error={!!errors.orderItems?.[index]?.sku}
-                            helperText={
-                              errors.orderItems?.[index]?.sku?.message
-                            }
-                          />
+                      <FormControl
+                        fullWidth
+                        error={!!errors.orderItems?.[index]?.sku}
+                      >
+                        <FormLabel>SKU</FormLabel>
+                        <Select
+                          value={value?.id || ""}
+                          onChange={(e) => {
+                            const selectedSku = skus.find(
+                              (sku) => sku.id === e.target.value
+                            );
+                            onChange(selectedSku);
+                          }}
+                          displayEmpty
+                        >
+                          <MenuItem value="" disabled>
+                            Select a SKU
+                          </MenuItem>
+                          {skus.map((sku) => (
+                            <MenuItem key={sku.id} value={sku.id}>
+                              {sku.id} - {sku.name}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                        {errors.orderItems?.[index]?.sku && (
+                          <FormHelperText error>
+                            {errors.orderItems?.[index]?.sku?.message}
+                          </FormHelperText>
                         )}
-                      />
+                      </FormControl>
                     )}
                   />
                 </Grid>
