@@ -150,7 +150,7 @@ const ShopDetailPage: React.FC = () => {
             {shop.name}
           </Typography>
         </Box>
-        <Box sx={{ display: "flex", gap: 1 }}>
+        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
           <Chip
             icon={<StoreIcon />}
             label={shop.isNew ? "New Shop" : "Existing Shop"}
@@ -161,7 +161,7 @@ const ShopDetailPage: React.FC = () => {
             variant="contained"
             startIcon={<EditIcon />}
             onClick={handleEdit}
-            size="medium"
+            size="small"
           >
             Edit Shop
           </Button>
@@ -170,7 +170,7 @@ const ShopDetailPage: React.FC = () => {
             color="error"
             startIcon={<DeleteIcon />}
             onClick={handleDeleteClick}
-            size="medium"
+            size="small"
           >
             Delete
           </Button>
@@ -317,7 +317,7 @@ const ShopDetailPage: React.FC = () => {
       </Grid>
 
       {/* Action Buttons */}
-      <Box sx={{ mt: 4, display: "flex", gap: 2, justifyContent: "center" }}>
+      <Box sx={{ mt: 4, display: "flex", gap: 2, justifyContent: "center", flexWrap: "wrap" }}>
         <Button
           variant="outlined"
           startIcon={<ArrowBackIcon />}
