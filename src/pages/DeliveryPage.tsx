@@ -45,6 +45,7 @@ import CheckCircleIcon from "@mui/icons-material/CheckCircle";
 import PendingIcon from "@mui/icons-material/Pending";
 import DeliveryDiningIcon from "@mui/icons-material/DeliveryDining";
 import CancelIcon from "@mui/icons-material/Cancel";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
 
 import { useUser, useClerk } from "@clerk/clerk-react";
 import { useShopStore } from "../services/shopStore";
@@ -229,6 +230,16 @@ const DeliveryPage: React.FC = () => {
       return matchesSearch;
     }
 
+    if (statusFilter === "Delayed") {
+      if (!delivery.estimatedDeliveryDate) return false;
+      if (delivery.status === "Delivered" || delivery.status === "Cancelled") return false;
+      const estDate = new Date(delivery.estimatedDeliveryDate);
+      const currentDate = new Date();
+      currentDate.setHours(0, 0, 0, 0);
+      estDate.setHours(0, 0, 0, 0);
+      return matchesSearch && estDate < currentDate;
+    }
+
     return matchesSearch && delivery.status === statusFilter;
   });
 
@@ -375,6 +386,7 @@ const DeliveryPage: React.FC = () => {
                 <Tab key={phase} label={DeliveryStatusLabels[phase]} />
               ))}
               <Tab label="Cancelled" sx={{ color: "error.main" }} />
+              <Tab label="Delayed" sx={{ color: "warning.main" }} />
             </Tabs>
           </Box>
 
@@ -421,6 +433,7 @@ const DeliveryPage: React.FC = () => {
                       </MenuItem>
                     ))}
                     <MenuItem value="Cancelled">Cancelled</MenuItem>
+                    <MenuItem value="Delayed">Delayed</MenuItem>
                   </Select>
                 </FormControl>
               </Grid>
@@ -459,6 +472,28 @@ const DeliveryPage: React.FC = () => {
               <DeliveryTable
                 deliveries={filteredDeliveries.filter(
                   (d) => d.status === "Cancelled",
+                )}
+                getStatusChip={getStatusChip}
+                getShopName={getShopName}
+                getOrderDetails={getOrderDetails}
+                onStatusUpdate={handleStatusUpdate}
+                onCancelOrder={handleOpenCancelDialog}
+              />
+            </TabPanel>
+
+            {/* Delayed Tab */}
+            <TabPanel value={tabValue} index={DELIVERY_PHASES.length + 2}>
+              <DeliveryTable
+                deliveries={filteredDeliveries.filter(
+                  (d) => {
+                    if (!d.estimatedDeliveryDate) return false;
+                    if (d.status === "Delivered" || d.status === "Cancelled") return false;
+                    const estDate = new Date(d.estimatedDeliveryDate);
+                    const currentDate = new Date();
+                    currentDate.setHours(0, 0, 0, 0);
+                    estDate.setHours(0, 0, 0, 0);
+                    return estDate < currentDate;
+                  },
                 )}
                 getStatusChip={getStatusChip}
                 getShopName={getShopName}
@@ -544,6 +579,24 @@ const DeliveryPage: React.FC = () => {
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Cancelled
+                </Typography>
+              </Box>
+            </Grid>
+            <Grid item xs={6} md={3}>
+              <Box sx={{ textAlign: "center", p: 2 }}>
+                <Typography variant="h4" color="warning.main" fontWeight="bold">
+                  {allDeliveries?.filter((d) => {
+                    if (!d.estimatedDeliveryDate) return false;
+                    if (d.status === "Delivered" || d.status === "Cancelled") return false;
+                    const estDate = new Date(d.estimatedDeliveryDate);
+                    const currentDate = new Date();
+                    currentDate.setHours(0, 0, 0, 0);
+                    estDate.setHours(0, 0, 0, 0);
+                    return estDate < currentDate;
+                  }).length || 0}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Delayed
                 </Typography>
               </Box>
             </Grid>
