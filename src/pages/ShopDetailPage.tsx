@@ -151,12 +151,6 @@ const ShopDetailPage: React.FC = () => {
           </Typography>
         </Box>
         <Box sx={{ display: "flex", gap: 1 }}>
-          <Chip
-            icon={<StoreIcon />}
-            label={shop.isNew ? "New Shop" : "Existing Shop"}
-            color={shop.isNew ? "success" : "default"}
-            variant={shop.isNew ? "filled" : "outlined"}
-          />
           <Button
             variant="contained"
             startIcon={<EditIcon />}
@@ -324,13 +318,6 @@ const ShopDetailPage: React.FC = () => {
           onClick={() => navigate("/shops")}
         >
           Back to Shops
-        </Button>
-        <Button
-          variant="contained"
-          startIcon={<EditIcon />}
-          onClick={handleEdit}
-        >
-          Edit Shop Details
         </Button>
       </Box>
 
