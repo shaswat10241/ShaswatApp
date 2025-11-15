@@ -337,7 +337,7 @@ const AnalyticsPage: React.FC = () => {
         }
         const pricePerUnit =
           item.unitType === "box" ? item.sku.boxPrice : item.sku.price;
-        productStats[key].quantity += item.quantity;
+        productStats[key].quantity += Number(item.quantity);
         productStats[key].revenue += pricePerUnit * item.quantity;
         productStats[key].orders += 1;
       });
