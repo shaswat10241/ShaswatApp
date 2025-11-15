@@ -26,15 +26,21 @@ import AddCircleOutlineIcon from "@mui/icons-material/AddCircleOutline";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import { useShopStore } from "../services/shopStore";
 import { useOrderStore } from "../services/orderStore";
-import { OrderFormData, SKU } from "../models/Order";
+import { Order, OrderFormData, SKU } from "../models/Order";
 
-const OrderForm: React.FC = () => {
+interface OrderFormProps {
+  order?: Order;
+  isEdit?: boolean;
+}
+
+const OrderForm: React.FC<OrderFormProps> = ({ order, isEdit = false }) => {
   const navigate = useNavigate();
   const { shops, fetchShops, loading: shopsLoading } = useShopStore();
   const {
     skus,
     fetchSKUs,
     createOrder,
+    updateOrder,
     loading: ordersLoading,
   } = useOrderStore();
 
@@ -46,11 +52,11 @@ const OrderForm: React.FC = () => {
     watch,
   } = useForm<OrderFormData>({
     defaultValues: {
-      shopId: "",
-      orderItems: [
+      shopId: order?.shopId || "",
+      orderItems: order?.orderItems || [
         { sku: null as unknown as SKU, quantity: 1, unitType: "packet" },
       ],
-      discountCode: "",
+      discountCode: order?.discountCode || "",
     },
   });
 
@@ -95,31 +101,37 @@ const OrderForm: React.FC = () => {
 
   const onSubmit = async (data: OrderFormData) => {
     try {
-      // First create the order
-      const order = await createOrder(data);
+      if (isEdit && order?.id) {
+        // Update existing order
+        const updatedOrder = await updateOrder(order.id, data);
+        navigate(`/order-detail/${order.id}`);
+      } else {
+        // Create new order
+        const newOrder = await createOrder(data);
 
-      // Then automatically create a delivery entry for this order
-      if (order.id) {
-        try {
-          // Use the delivery store to create a delivery entry
-          await useDeliveryStore.getState().createDeliveryFromOrder(order);
-          console.log("Delivery created for order", order.id);
-        } catch (deliveryError) {
-          console.error("Error creating delivery:", deliveryError);
-          // Continue even if delivery creation fails
+        // Then automatically create a delivery entry for this order
+        if (newOrder.id) {
+          try {
+            // Use the delivery store to create a delivery entry
+            await useDeliveryStore.getState().createDeliveryFromOrder(newOrder);
+            console.log("Delivery created for order", newOrder.id);
+          } catch (deliveryError) {
+            console.error("Error creating delivery:", deliveryError);
+            // Continue even if delivery creation fails
+          }
         }
-      }
 
-      navigate("/order-summary", { state: { orderId: order.id } });
+        navigate("/order-summary", { state: { orderId: newOrder.id } });
+      }
     } catch (error) {
-      console.error("Error creating order:", error);
+      console.error(`Error ${isEdit ? "updating" : "creating"} order:`, error);
     }
   };
 
   return (
     <Paper className="form-container">
       <Typography variant="h5" component="h2" gutterBottom>
-        Create Order
+        {isEdit ? "Edit Order" : "Create Order"}
       </Typography>
 
       <form onSubmit={handleSubmit(onSubmit)}>
@@ -297,7 +309,7 @@ const OrderForm: React.FC = () => {
             <Button
               type="button"
               variant="outlined"
-              onClick={() => navigate("/")}
+              onClick={() => navigate(isEdit && order?.id ? `/order-detail/${order.id}` : "/")}
               sx={{ mr: 2 }}
             >
               Cancel
@@ -308,7 +320,11 @@ const OrderForm: React.FC = () => {
               color="primary"
               disabled={shopsLoading || ordersLoading}
             >
-              {ordersLoading ? "Processing..." : "Submit Order"}
+              {ordersLoading
+                ? "Processing..."
+                : isEdit
+                  ? "Update Order"
+                  : "Submit Order"}
             </Button>
           </Box>
         </Stack>

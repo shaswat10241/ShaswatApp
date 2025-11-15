@@ -26,6 +26,7 @@ import LocalShippingIcon from "@mui/icons-material/LocalShipping";
 import ReceiptIcon from "@mui/icons-material/Receipt";
 import DownloadIcon from "@mui/icons-material/Download";
 import PrintIcon from "@mui/icons-material/Print";
+import EditIcon from "@mui/icons-material/Edit";
 import { useOrderStore } from "../services/orderStore";
 import { useShopStore } from "../services/shopStore";
 import { useDeliveryStore } from "../services/deliveryStore";
@@ -397,7 +398,7 @@ const OrderDetailPage: React.FC = () => {
     <Container maxWidth="lg" sx={{ mt: 4, mb: 4 }}>
       {/* Header */}
       <Box sx={{ mb: 3, display: "flex", alignItems: "center", gap: 2 }}>
-        <IconButton onClick={() => navigate("/delivery")} sx={{ mr: 1 }}>
+        <IconButton onClick={() => navigate("/dashboard")} sx={{ mr: 1 }}>
           <ArrowBackIcon />
         </IconButton>
         <Box sx={{ flexGrow: 1 }}>
@@ -417,6 +418,14 @@ const OrderDetailPage: React.FC = () => {
           />
           <Button
             variant="contained"
+            startIcon={<EditIcon />}
+            onClick={() => navigate(`/order/${order.id}/edit`)}
+            size="small"
+          >
+            Edit Order
+          </Button>
+          <Button
+            variant="outlined"
             startIcon={<DownloadIcon />}
             onClick={handleDownloadInvoice}
             size="small"
