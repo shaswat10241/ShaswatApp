@@ -41,15 +41,18 @@ import {
 } from "@mui/icons-material";
 import { useOrderStore } from "../services/orderStore";
 import { useShopStore } from "../services/shopStore";
+import { useUserStore } from "../services/userStore";
 import { Order } from "../models/Order";
 
 const OrderListPage: React.FC = () => {
   const navigate = useNavigate();
   const { orders, fetchOrders, deleteOrder, loading } = useOrderStore();
   const { shops, fetchShops } = useShopStore();
+  const { users, fetchAllUsers } = useUserStore();
 
   const [searchTerm, setSearchTerm] = useState("");
   const [discountFilter, setDiscountFilter] = useState("all");
+  const [employeeFilter, setEmployeeFilter] = useState("all");
   const [sortBy, setSortBy] = useState("date");
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [orderToDelete, setOrderToDelete] = useState<Order | null>(null);
@@ -68,6 +71,7 @@ const OrderListPage: React.FC = () => {
       try {
         await fetchOrders();
         await fetchShops();
+        await fetchAllUsers();
       } catch (error) {
         setSnackbar({
           open: true,
@@ -77,7 +81,7 @@ const OrderListPage: React.FC = () => {
       }
     };
     loadData();
-  }, [fetchOrders, fetchShops]);
+  }, [fetchOrders, fetchShops, fetchAllUsers]);
 
   // Helper function to get shop name by ID
   const getShopName = (shopId: string) => {
@@ -85,13 +89,22 @@ const OrderListPage: React.FC = () => {
     return shop ? shop.name : "Unknown Shop";
   };
 
+  // Helper function to get employee name by ID
+  const getEmployeeName = (employeeId?: string) => {
+    if (!employeeId) return "N/A";
+    const employee = users.find((u) => u.id === employeeId);
+    return employee ? employee.name : "Unknown Employee";
+  };
+
   // Filter orders based on search and filters
   const filteredOrders = orders
     .filter((order) => {
       const shopName = getShopName(order.shopId);
+      const employeeName = getEmployeeName(order.employeeId);
       const matchesSearch =
         order.id?.toLowerCase().includes(searchTerm.toLowerCase()) ||
         shopName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
         order.finalAmount.toString().includes(searchTerm);
 
       const matchesDiscount =
@@ -99,7 +112,11 @@ const OrderListPage: React.FC = () => {
         (discountFilter === "with" && order.discountCode) ||
         (discountFilter === "without" && !order.discountCode);
 
-      return matchesSearch && matchesDiscount;
+      const matchesEmployee =
+        employeeFilter === "all" ||
+        order.employeeId === employeeFilter;
+
+      return matchesSearch && matchesDiscount && matchesEmployee;
     })
     .sort((a, b) => {
       switch (sortBy) {
@@ -190,7 +207,7 @@ const OrderListPage: React.FC = () => {
         {/* Search and Filters */}
         <Box sx={{ display: "flex", gap: 2, mb: 3, flexWrap: "wrap" }}>
           <TextField
-            placeholder="Search by order ID, shop, or amount..."
+            placeholder="Search by order ID, shop, employee, or amount..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             sx={{ flexGrow: 1, minWidth: 300 }}
@@ -202,6 +219,21 @@ const OrderListPage: React.FC = () => {
               ),
             }}
           />
+          <FormControl sx={{ minWidth: 150 }}>
+            <InputLabel>Employee</InputLabel>
+            <Select
+              value={employeeFilter}
+              onChange={(e) => setEmployeeFilter(e.target.value)}
+              label="Employee"
+            >
+              <MenuItem value="all">All Employees</MenuItem>
+              {users.map((user) => (
+                <MenuItem key={user.id} value={user.id}>
+                  {user.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
           <FormControl sx={{ minWidth: 150 }}>
             <InputLabel>Discount</InputLabel>
             <Select
@@ -296,6 +328,7 @@ const OrderListPage: React.FC = () => {
                 <TableRow>
                   <TableCell>Order ID</TableCell>
                   <TableCell>Shop Name</TableCell>
+                  <TableCell>Order Taken By</TableCell>
                   <TableCell>Items</TableCell>
                   <TableCell>Total Amount</TableCell>
                   <TableCell>Discount</TableCell>
@@ -319,6 +352,11 @@ const OrderListPage: React.FC = () => {
                           {getShopName(order.shopId)}
                         </Typography>
                       </Box>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2">
+                        {getEmployeeName(order.employeeId)}
+                      </Typography>
                     </TableCell>
                     <TableCell>
                       <Chip
