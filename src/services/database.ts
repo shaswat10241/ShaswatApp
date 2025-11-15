@@ -434,6 +434,37 @@ class ShopDatabase {
     };
   }
 
+  async updateOrder(order: Order): Promise<Order> {
+    const { data, error } = await supabase
+      .from("orders")
+      .update({
+        shop_id: order.shopId,
+        employee_id: order.employeeId,
+        order_items: JSON.stringify(order.orderItems),
+        total_amount: order.totalAmount,
+        discount_code: order.discountCode,
+        discount_amount: order.discountAmount,
+        final_amount: order.finalAmount,
+      })
+      .eq("id", order.id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return {
+      id: data.id,
+      shopId: data.shop_id,
+      employeeId: data.employee_id,
+      orderItems: JSON.parse(data.order_items),
+      totalAmount: data.total_amount,
+      discountCode: data.discount_code,
+      discountAmount: data.discount_amount,
+      finalAmount: data.final_amount,
+      createdAt: new Date(data.created_at),
+    };
+  }
+
   async getAllOrders(): Promise<Order[]> {
     const { data, error } = await supabase
       .from("orders")
