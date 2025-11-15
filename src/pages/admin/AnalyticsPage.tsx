@@ -72,7 +72,7 @@ const AnalyticsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useUser();
   const { signOut } = useClerk();
-  const { isAdmin, users, fetchAllUsers } = useUserStore();
+  const { isAdmin, users, fetchAllUsers, syncUserFromClerk, currentUser } = useUserStore();
   const { orders, fetchOrders } = useOrderStore();
   const { shops, fetchShops } = useShopStore();
   const { deliveries, fetchDeliveries } = useDeliveryStore();
@@ -85,6 +85,23 @@ const AnalyticsPage: React.FC = () => {
     new Date().toISOString().split("T")[0],
   );
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+  // Sync user from Clerk to database
+  useEffect(() => {
+    const syncUser = async () => {
+      if (user?.emailAddresses?.[0]?.emailAddress && user?.fullName) {
+        const email = user.emailAddresses[0].emailAddress;
+        const name = user.fullName || "User";
+
+        try {
+          await syncUserFromClerk(email, name);
+        } catch (error) {
+          console.error("Error syncing user:", error);
+        }
+      }
+    };
+    syncUser();
+  }, [user, syncUserFromClerk]);
 
   useEffect(() => {
     if (!isAdmin()) {
@@ -562,10 +579,18 @@ const AnalyticsPage: React.FC = () => {
           >
             Analytics & Reports
           </Typography>
-          <Box sx={{ display: "flex", alignItems: "center" }}>
-            <Typography variant="body2" sx={{ mr: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Typography variant="body2">
               {user?.firstName || user?.username || "Admin"}
             </Typography>
+            {currentUser && (
+              <Chip
+                label={currentUser.role.toUpperCase()}
+                color={isAdmin() ? "error" : "primary"}
+                size="small"
+                sx={{ fontWeight: 600 }}
+              />
+            )}
             <IconButton onClick={handleMenu} color="inherit">
               <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main" }}>
                 <PersonIcon />
