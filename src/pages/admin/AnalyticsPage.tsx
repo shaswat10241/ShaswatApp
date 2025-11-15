@@ -72,7 +72,7 @@ const AnalyticsPage: React.FC = () => {
   const navigate = useNavigate();
   const { user } = useUser();
   const { signOut } = useClerk();
-  const { isAdmin, users, fetchAllUsers } = useUserStore();
+  const { isAdmin, users, fetchAllUsers, syncUserFromClerk, currentUser } = useUserStore();
   const { orders, fetchOrders } = useOrderStore();
   const { shops, fetchShops } = useShopStore();
   const { deliveries, fetchDeliveries } = useDeliveryStore();
@@ -85,6 +85,23 @@ const AnalyticsPage: React.FC = () => {
     new Date().toISOString().split("T")[0],
   );
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+
+  // Sync user from Clerk to database
+  useEffect(() => {
+    const syncUser = async () => {
+      if (user?.emailAddresses?.[0]?.emailAddress && user?.fullName) {
+        const email = user.emailAddresses[0].emailAddress;
+        const name = user.fullName || "User";
+
+        try {
+          await syncUserFromClerk(email, name);
+        } catch (error) {
+          console.error("Error syncing user:", error);
+        }
+      }
+    };
+    syncUser();
+  }, [user, syncUserFromClerk]);
 
   useEffect(() => {
     if (!isAdmin()) {
@@ -364,7 +381,9 @@ const AnalyticsPage: React.FC = () => {
         email: string;
         orders: number;
         revenue: number;
+        totalUnits: number;
         avgOrderValue: number;
+        runRatePerUnit: number;
       };
     } = {};
 
@@ -400,19 +419,26 @@ const AnalyticsPage: React.FC = () => {
             email: employee?.email || "N/A",
             orders: 0,
             revenue: 0,
+            totalUnits: 0,
             avgOrderValue: 0,
+            runRatePerUnit: 0,
           };
         }
 
         employeeStats[employeeId].orders += 1;
         employeeStats[employeeId].revenue += order.finalAmount;
+
+        // Calculate total units from order items
+        const orderUnits = order.orderItems.reduce((sum, item) => sum + Number(item.quantity), 0);
+        employeeStats[employeeId].totalUnits += Number(orderUnits);
       }
     });
 
-    // Calculate average order value and convert to array
+    // Calculate average order value, run rate per unit and convert to array
     const employeeArray = Object.values(employeeStats).map((emp) => ({
       ...emp,
       avgOrderValue: emp.orders > 0 ? emp.revenue / emp.orders : 0,
+      runRatePerUnit: emp.totalUnits > 0 ? emp.revenue / emp.totalUnits : 0,
     }));
 
     return employeeArray.sort((a, b) => b.revenue - a.revenue);
@@ -553,10 +579,18 @@ const AnalyticsPage: React.FC = () => {
           >
             Analytics & Reports
           </Typography>
-          <Box sx={{ display: "flex", alignItems: "center" }}>
-            <Typography variant="body2" sx={{ mr: 2 }}>
+          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+            <Typography variant="body2">
               {user?.firstName || user?.username || "Admin"}
             </Typography>
+            {currentUser && (
+              <Chip
+                label={currentUser.role.toUpperCase()}
+                color={isAdmin() ? "error" : "primary"}
+                size="small"
+                sx={{ fontWeight: 600 }}
+              />
+            )}
             <IconButton onClick={handleMenu} color="inherit">
               <Avatar sx={{ width: 32, height: 32, bgcolor: "primary.main" }}>
                 <PersonIcon />
@@ -930,6 +964,12 @@ const AnalyticsPage: React.FC = () => {
                               <strong>Total Revenue</strong>
                             </TableCell>
                             <TableCell align="right">
+                              <strong>Total Units</strong>
+                            </TableCell>
+                            <TableCell align="right">
+                              <strong>Run rate per unit</strong>
+                            </TableCell>
+                            <TableCell align="right">
                               <strong>Avg Order Value</strong>
                             </TableCell>
                             <TableCell align="center">
@@ -973,6 +1013,16 @@ const AnalyticsPage: React.FC = () => {
                                     color="success.main"
                                   >
                                     ₹{employee.revenue.toLocaleString()}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography fontWeight="500">
+                                    {employee.totalUnits}
+                                  </Typography>
+                                </TableCell>
+                                <TableCell align="right">
+                                  <Typography fontWeight="500" color="primary.main">
+                                    ₹{employee.runRatePerUnit.toFixed(2)}
                                   </Typography>
                                 </TableCell>
                                 <TableCell align="right">

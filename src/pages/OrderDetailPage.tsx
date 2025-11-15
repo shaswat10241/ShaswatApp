@@ -27,9 +27,11 @@ import ReceiptIcon from "@mui/icons-material/Receipt";
 import DownloadIcon from "@mui/icons-material/Download";
 import PrintIcon from "@mui/icons-material/Print";
 import EditIcon from "@mui/icons-material/Edit";
+import PersonIcon from "@mui/icons-material/Person";
 import { useOrderStore } from "../services/orderStore";
 import { useShopStore } from "../services/shopStore";
 import { useDeliveryStore } from "../services/deliveryStore";
+import { useUserStore, User } from "../services/userStore";
 import { Order } from "../models/Order";
 import { Shop } from "../models/Shop";
 import { Delivery } from "../models/Delivery";
@@ -41,10 +43,12 @@ const OrderDetailPage: React.FC = () => {
   const { shops, fetchShops } = useShopStore();
   const { getDeliveryByOrderId, deliveries, fetchDeliveries } =
     useDeliveryStore();
+  const { users, fetchAllUsers } = useUserStore();
 
   const [order, setOrder] = useState<Order | null>(null);
   const [shop, setShop] = useState<Shop | null>(null);
   const [delivery, setDelivery] = useState<Delivery | null>(null);
+  const [employee, setEmployee] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -53,11 +57,12 @@ const OrderDetailPage: React.FC = () => {
       await fetchOrders();
       await fetchShops();
       await fetchDeliveries();
+      await fetchAllUsers();
       setLoading(false);
     };
 
     loadData();
-  }, [fetchOrders, fetchShops, fetchDeliveries]);
+  }, [fetchOrders, fetchShops, fetchDeliveries, fetchAllUsers]);
 
   useEffect(() => {
     if (orderId && orders.length > 0) {
@@ -70,9 +75,14 @@ const OrderDetailPage: React.FC = () => {
 
         const foundDelivery = getDeliveryByOrderId(orderId);
         setDelivery(foundDelivery);
+
+        if (foundOrder.employeeId) {
+          const foundEmployee = users.find((u) => u.id === foundOrder.employeeId);
+          setEmployee(foundEmployee || null);
+        }
       }
     }
-  }, [orderId, orders, shops, deliveries, getOrderById, getDeliveryByOrderId]);
+  }, [orderId, orders, shops, deliveries, users, getOrderById, getDeliveryByOrderId]);
 
   const handleDownloadInvoice = () => {
     if (!order || !shop) return;
@@ -114,6 +124,19 @@ const OrderDetailPage: React.FC = () => {
           <div class="info-row"><span><strong>Phone:</strong></span><span>${shop.phoneNumber}</span></div>
           <div class="info-row"><span><strong>Category:</strong></span><span>${shop.category}</span></div>
         </div>
+
+        ${
+          employee
+            ? `
+        <div class="info-section">
+          <h3>Order Taken By</h3>
+          <div class="info-row"><span><strong>Name:</strong></span><span>${employee.name}</span></div>
+          <div class="info-row"><span><strong>Email:</strong></span><span>${employee.email}</span></div>
+          <div class="info-row"><span><strong>Role:</strong></span><span>${employee.role}</span></div>
+        </div>
+        `
+            : ""
+        }
 
         ${
           delivery
@@ -251,6 +274,19 @@ const OrderDetailPage: React.FC = () => {
           <div class="info-row"><span><strong>Phone:</strong></span><span>${shop.phoneNumber}</span></div>
           <div class="info-row"><span><strong>Category:</strong></span><span>${shop.category}</span></div>
         </div>
+
+        ${
+          employee
+            ? `
+        <div class="info-section">
+          <h3>Order Taken By</h3>
+          <div class="info-row"><span><strong>Name:</strong></span><span>${employee.name}</span></div>
+          <div class="info-row"><span><strong>Email:</strong></span><span>${employee.email}</span></div>
+          <div class="info-row"><span><strong>Role:</strong></span><span>${employee.role}</span></div>
+        </div>
+        `
+            : ""
+        }
 
         ${
           delivery
@@ -563,6 +599,54 @@ const OrderDetailPage: React.FC = () => {
               ) : (
                 <Typography color="text.secondary">
                   Delivery information not available
+                </Typography>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Order Taken By */}
+        <Grid item xs={12} md={6}>
+          <Card elevation={3}>
+            <CardContent>
+              <Box sx={{ display: "flex", alignItems: "center", mb: 2 }}>
+                <PersonIcon color="primary" sx={{ mr: 1 }} />
+                <Typography variant="h6" fontWeight="600">
+                  Order Taken By
+                </Typography>
+              </Box>
+              <Divider sx={{ mb: 2 }} />
+              {employee ? (
+                <>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Name
+                    </Typography>
+                    <Typography variant="body1" fontWeight="500">
+                      {employee.name}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ mb: 2 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Email
+                    </Typography>
+                    <Typography variant="body1">{employee.email}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Role
+                    </Typography>
+                    <Chip
+                      label={employee.role.toUpperCase()}
+                      size="small"
+                      color={employee.role === "admin" ? "error" : "primary"}
+                      sx={{ mt: 0.5 }}
+                    />
+                  </Box>
+                </>
+              ) : (
+                <Typography color="text.secondary">
+                  Employee information not available
                 </Typography>
               )}
             </CardContent>
