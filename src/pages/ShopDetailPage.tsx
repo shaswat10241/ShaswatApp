@@ -150,7 +150,7 @@ const ShopDetailPage: React.FC = () => {
             {shop.name}
           </Typography>
         </Box>
-        <Box sx={{ display: "flex", gap: 1, flexWrap: "wrap" }}>
+        <Box sx={{ display: "flex", gap: 1 }}>
           <Chip
             icon={<StoreIcon />}
             label={shop.isNew ? "New Shop" : "Existing Shop"}
@@ -317,7 +317,7 @@ const ShopDetailPage: React.FC = () => {
       </Grid>
 
       {/* Action Buttons */}
-      <Box sx={{ mt: 4, display: "flex", gap: 2, justifyContent: "center", flexWrap: "wrap" }}>
+      <Box sx={{ mt: 4, display: "flex", gap: 2, justifyContent: "center" }}>
         <Button
           variant="outlined"
           startIcon={<ArrowBackIcon />}
