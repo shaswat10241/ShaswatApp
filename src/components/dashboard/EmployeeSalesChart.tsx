@@ -82,7 +82,8 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
       if (!order.employeeId) return;
 
       const shop = shops.find((s) => s.id === order.shopId);
-      const district = shop?.district || "Unknown";
+      // Get district, treating empty strings as Unknown
+      const district = shop?.district?.trim() || "Unknown";
 
       if (!employeeMap.has(order.employeeId)) {
         const employee = employees.find((e) => e.id === order.employeeId);
@@ -117,7 +118,8 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
 
     orders.forEach((order) => {
       const shop = shops.find((s) => s.id === order.shopId);
-      const district = shop?.district || "Unknown";
+      // Get district, treating empty strings as Unknown
+      const district = shop?.district?.trim() || "Unknown";
 
       if (!districtMap.has(district)) {
         districtMap.set(district, {
@@ -139,16 +141,17 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
         orders
           .filter((o) => {
             const shop = shops.find((s) => s.id === o.shopId);
-            return (shop?.district || "Unknown") === district && o.employeeId;
+            const shopDistrict = shop?.district?.trim() || "Unknown";
+            return shopDistrict === district && o.employeeId;
           })
           .map((o) => o.employeeId!)
       );
       data.employees = employeeSet.size;
     });
 
-    return Array.from(districtMap.values()).sort(
-      (a, b) => b.revenue - a.revenue
-    );
+    return Array.from(districtMap.values())
+      .filter((d) => d.district !== "Unknown") // Exclude Unknown from district view
+      .sort((a, b) => b.revenue - a.revenue);
   };
 
   const employeeData = getEmployeeData();
@@ -156,6 +159,15 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
   const districts = Array.from(
     new Set(districtData.map((d) => d.district))
   ).sort();
+
+  // Calculate shops with missing district data
+  const shopsWithoutDistrict = shops.filter(
+    (shop) => !shop.district || shop.district.trim() === ""
+  );
+  const ordersWithoutDistrict = orders.filter((order) => {
+    const shop = shops.find((s) => s.id === order.shopId);
+    return !shop?.district || shop.district.trim() === "";
+  });
 
   // Filter employee data by district if selected
   const filteredEmployeeData =
@@ -208,6 +220,19 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
         <Tab label="By Employee" value="employee" />
         <Tab label="By District" value="district" />
       </Tabs>
+
+      {/* Warning for shops without district data */}
+      {shopsWithoutDistrict.length > 0 && (
+        <Box sx={{ mb: 3, p: 2, bgcolor: "warning.light", borderRadius: 1 }}>
+          <Typography variant="body2" fontWeight="500" gutterBottom>
+            ⚠️ {shopsWithoutDistrict.length} shop(s) are missing district information
+          </Typography>
+          <Typography variant="caption" color="text.secondary">
+            {ordersWithoutDistrict.length} order(s) cannot be categorized by district.
+            Please update the district field for these shops to see complete district analysis.
+          </Typography>
+        </Box>
+      )}
 
       {viewMode === "employee" && (
         <>
