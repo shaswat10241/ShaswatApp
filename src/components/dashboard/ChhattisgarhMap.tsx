@@ -62,8 +62,8 @@ const createCustomIcon = (category: "wholeseller" | "retailer") => {
   });
 };
 
-// Component to fit map bounds to markers
-const MapBounds: React.FC<{ shops: Shop[] }> = ({ shops }) => {
+// Component to fit map bounds to markers (within Chhattisgarh bounds)
+const MapBounds: React.FC<{ shops: Shop[]; maxBounds: L.LatLngBoundsExpression }> = ({ shops, maxBounds }) => {
   const map = useMap();
 
   useEffect(() => {
@@ -72,12 +72,16 @@ const MapBounds: React.FC<{ shops: Shop[] }> = ({ shops }) => {
     );
 
     if (shopsWithCoords.length > 0) {
-      const bounds = L.latLngBounds(
+      const shopBounds = L.latLngBounds(
         shopsWithCoords.map((shop) => [shop.latitude!, shop.longitude!])
       );
-      map.fitBounds(bounds, { padding: [50, 50] });
+      // Fit to shop bounds but don't zoom out beyond Chhattisgarh bounds
+      map.fitBounds(shopBounds, { padding: [50, 50], maxZoom: 10 });
+    } else {
+      // If no shops, show entire Chhattisgarh state
+      map.fitBounds(maxBounds);
     }
-  }, [shops, map]);
+  }, [shops, map, maxBounds]);
 
   return null;
 };
@@ -94,6 +98,12 @@ const ChhattisgarhMap: React.FC<ChhattisgarhMapProps> = ({ shops }) => {
 
   // Chhattisgarh center coordinates
   const chhattisgarhCenter: [number, number] = [21.2514, 81.6296];
+
+  // Chhattisgarh state boundaries (approximate)
+  const chhattisgarhBounds: L.LatLngBoundsExpression = [
+    [17.46, 80.15],  // Southwest corner (lat, lng)
+    [24.10, 84.40],  // Northeast corner (lat, lng)
+  ];
 
   // Get shops with valid coordinates
   const shopsWithCoords = shops.filter(
@@ -212,67 +222,60 @@ const ChhattisgarhMap: React.FC<ChhattisgarhMapProps> = ({ shops }) => {
 
       {/* Map */}
       <Box sx={{ height: 500, borderRadius: 1, overflow: "hidden", border: "1px solid #e0e0e0" }}>
-        {filteredShops.length > 0 ? (
-          <MapContainer
-            center={chhattisgarhCenter}
-            zoom={7}
-            style={{ height: "100%", width: "100%" }}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-            />
-            <MapBounds shops={filteredShops} />
-            {filteredShops.map((shop) => (
-              <Marker
-                key={shop.id}
-                position={[shop.latitude!, shop.longitude!]}
-                icon={createCustomIcon(shop.category)}
-              >
-                <Popup>
-                  <Box sx={{ p: 1 }}>
-                    <Typography variant="subtitle2" fontWeight="bold">
-                      {shop.name}
-                    </Typography>
-                    <Typography variant="caption" display="block">
-                      <strong>Category:</strong>{" "}
-                      {shop.category === "wholeseller" ? "Wholeseller" : "Retailer"}
-                    </Typography>
-                    <Typography variant="caption" display="block">
-                      <strong>District:</strong> {shop.district || "N/A"}
-                    </Typography>
-                    <Typography variant="caption" display="block">
-                      <strong>Location:</strong> {shop.location}
-                    </Typography>
-                    <Typography variant="caption" display="block">
-                      <strong>Phone:</strong> {shop.phoneNumber}
-                    </Typography>
-                    <Chip
-                      label={shop.isNew ? "New Shop" : "Existing"}
-                      size="small"
-                      color={shop.isNew ? "success" : "default"}
-                      sx={{ mt: 1 }}
-                    />
-                  </Box>
-                </Popup>
-              </Marker>
-            ))}
-          </MapContainer>
-        ) : (
-          <Box
-            sx={{
-              height: "100%",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              bgcolor: "#f5f5f5",
-            }}
-          >
-            <Typography color="text.secondary">
-              No shops with location data available
-            </Typography>
-          </Box>
-        )}
+        <MapContainer
+          center={chhattisgarhCenter}
+          zoom={7}
+          minZoom={7}
+          maxZoom={12}
+          maxBounds={chhattisgarhBounds}
+          maxBoundsViscosity={1.0}
+          style={{ height: "100%", width: "100%" }}
+          scrollWheelZoom={true}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          {filteredShops.length > 0 ? (
+            <>
+              <MapBounds shops={filteredShops} maxBounds={chhattisgarhBounds} />
+              {filteredShops.map((shop) => (
+                <Marker
+                  key={shop.id}
+                  position={[shop.latitude!, shop.longitude!]}
+                  icon={createCustomIcon(shop.category)}
+                >
+                  <Popup>
+                    <Box sx={{ p: 1 }}>
+                      <Typography variant="subtitle2" fontWeight="bold">
+                        {shop.name}
+                      </Typography>
+                      <Typography variant="caption" display="block">
+                        <strong>Category:</strong>{" "}
+                        {shop.category === "wholeseller" ? "Wholeseller" : "Retailer"}
+                      </Typography>
+                      <Typography variant="caption" display="block">
+                        <strong>District:</strong> {shop.district || "N/A"}
+                      </Typography>
+                      <Typography variant="caption" display="block">
+                        <strong>Location:</strong> {shop.location}
+                      </Typography>
+                      <Typography variant="caption" display="block">
+                        <strong>Phone:</strong> {shop.phoneNumber}
+                      </Typography>
+                      <Chip
+                        label={shop.isNew ? "New Shop" : "Existing"}
+                        size="small"
+                        color={shop.isNew ? "success" : "default"}
+                        sx={{ mt: 1 }}
+                      />
+                    </Box>
+                  </Popup>
+                </Marker>
+              ))}
+            </>
+          ) : null}
+        </MapContainer>
       </Box>
 
       {/* Legend */}
