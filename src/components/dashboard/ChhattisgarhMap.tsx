@@ -32,33 +32,50 @@ interface ChhattisgarhMapProps {
 // Create custom icons for different shop categories
 const createCustomIcon = (category: "wholeseller" | "retailer") => {
   const color = category === "wholeseller" ? "#1976d2" : "#2e7d32";
+  const label = category === "wholeseller" ? "W" : "R";
+
   return L.divIcon({
-    className: "custom-marker",
+    className: "custom-shop-marker",
     html: `
       <div style="
-        background-color: ${color};
-        width: 30px;
-        height: 30px;
-        border-radius: 50% 50% 50% 0;
-        transform: rotate(-45deg);
-        border: 3px solid white;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+        position: relative;
+        width: 32px;
+        height: 32px;
       ">
         <div style="
-          transform: rotate(45deg);
+          position: absolute;
+          bottom: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 0;
+          height: 0;
+          border-left: 16px solid transparent;
+          border-right: 16px solid transparent;
+          border-top: 24px solid ${color};
+        "></div>
+        <div style="
+          position: absolute;
+          top: 0;
+          left: 50%;
+          transform: translateX(-50%);
+          width: 24px;
+          height: 24px;
+          border-radius: 50%;
+          background-color: ${color};
+          border: 2px solid white;
+          display: flex;
+          align-items: center;
+          justify-content: center;
           color: white;
           font-weight: bold;
-          text-align: center;
-          line-height: 24px;
-          font-size: 14px;
-        ">
-          ${category === "wholeseller" ? "W" : "R"}
-        </div>
+          font-size: 12px;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        ">${label}</div>
       </div>
     `,
-    iconSize: [30, 30],
-    iconAnchor: [15, 30],
-    popupAnchor: [0, -30],
+    iconSize: [32, 32],
+    iconAnchor: [16, 32],
+    popupAnchor: [0, -32],
   });
 };
 
@@ -218,7 +235,30 @@ const ChhattisgarhMap: React.FC<ChhattisgarhMapProps> = ({ shops }) => {
           color="primary"
           variant="outlined"
         />
+        <Chip
+          label={`With Coordinates: ${shopsWithCoords.length}`}
+          color="warning"
+          variant="outlined"
+        />
       </Box>
+
+      {/* Warning if no coordinates */}
+      {shopsWithCoords.length === 0 && (
+        <Box sx={{ mb: 2, p: 2, bgcolor: "warning.light", borderRadius: 1 }}>
+          <Typography variant="body2" fontWeight="500">
+            ⚠️ No shops have location coordinates yet. Please add latitude and longitude data to shops to see them on the map.
+          </Typography>
+        </Box>
+      )}
+
+      {/* Info about shops with coordinates */}
+      {shopsWithCoords.length > 0 && filteredShops.length === 0 && (
+        <Box sx={{ mb: 2, p: 2, bgcolor: "info.light", borderRadius: 1 }}>
+          <Typography variant="body2" fontWeight="500">
+            ℹ️ {shopsWithCoords.length} shop(s) have coordinates, but none match your current filters. Try changing the filters above.
+          </Typography>
+        </Box>
+      )}
 
       {/* Map */}
       <Box sx={{ height: 500, borderRadius: 1, overflow: "hidden", border: "1px solid #e0e0e0" }}>
