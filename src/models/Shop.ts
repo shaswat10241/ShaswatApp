@@ -2,6 +2,7 @@ export interface Shop {
   id?: string;
   name: string;
   location: string;
+  district?: string;
   phoneNumber: string;
   category: "wholeseller" | "retailer";
   isNew: boolean;
@@ -14,6 +15,7 @@ export interface Shop {
 export interface ShopFormData {
   name: string;
   location: string;
+  district?: string;
   phoneNumber: string;
   category: "wholeseller" | "retailer";
   latitude?: number;

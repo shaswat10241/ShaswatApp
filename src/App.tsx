@@ -25,6 +25,7 @@ import SurveyPage from "./pages/SurveyPage";
 import ReturnOrderPage from "./pages/ReturnOrder";
 import WelcomePage from "./pages/WelcomePage";
 import AnalyticsPage from "./pages/admin/AnalyticsPage";
+import AdminDashboardsPage from "./pages/admin/AdminDashboardsPage";
 import TimesheetPage from "./pages/TimesheetPage";
 import AdminTimesheetPage from "./pages/admin/AdminTimesheetPage";
 import BatchCostCalculatorPage from "./pages/admin/BatchCostCalculatorPage";
@@ -227,6 +228,15 @@ function App() {
                 element={
                   <AuthWrapper requireAuth={true}>
                     <AnalyticsPage />
+                  </AuthWrapper>
+                }
+              />
+
+              <Route
+                path="/admin/dashboards"
+                element={
+                  <AuthWrapper requireAuth={true}>
+                    <AdminDashboardsPage />
                   </AuthWrapper>
                 }
               />
