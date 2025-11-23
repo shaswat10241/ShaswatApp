@@ -696,6 +696,84 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
               </Table>
             </TableContainer>
           </Box>
+
+          {/* Employee Performance by District Table */}
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+              Employee Performance by District
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Detailed breakdown of each employee's sales across districts
+            </Typography>
+            <TableContainer sx={{ maxHeight: 400 }}>
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ bgcolor: "grey.100", fontWeight: "bold", minWidth: 150 }}>
+                      Employee
+                    </TableCell>
+                    {districts.map((district) => (
+                      <TableCell
+                        key={district}
+                        align="right"
+                        sx={{ bgcolor: "grey.100", fontWeight: "bold", minWidth: 120 }}
+                      >
+                        {district}
+                      </TableCell>
+                    ))}
+                    <TableCell
+                      align="right"
+                      sx={{ bgcolor: "grey.100", fontWeight: "bold", minWidth: 120 }}
+                    >
+                      Total
+                    </TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {employeeData.map((emp) => (
+                    <TableRow key={emp.employeeId} hover>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="500">
+                          {emp.employeeName}
+                        </Typography>
+                      </TableCell>
+                      {districts.map((district) => (
+                        <TableCell key={district} align="right">
+                          {emp.districts[district] ? (
+                            <Box>
+                              <Typography variant="caption" color="success.main" fontWeight="bold">
+                                {formatCurrency(emp.districts[district].revenue)}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                display="block"
+                                sx={{ fontSize: "0.7rem" }}
+                              >
+                                ({emp.districts[district].orders} orders)
+                              </Typography>
+                            </Box>
+                          ) : (
+                            <Typography variant="caption" color="text.secondary">
+                              -
+                            </Typography>
+                          )}
+                        </TableCell>
+                      ))}
+                      <TableCell align="right">
+                        <Typography variant="body2" fontWeight="bold" color="primary">
+                          {formatCurrency(emp.revenue)}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          ({emp.orderCount} orders)
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Box>
         </>
       )}
     </Paper>
