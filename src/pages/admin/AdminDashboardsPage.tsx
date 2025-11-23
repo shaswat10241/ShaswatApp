@@ -290,21 +290,6 @@ const AdminDashboardsPage: React.FC = () => {
             <ProductCategoryChart orders={activeOrders} shops={shops} />
           </Grid>
         </Grid>
-
-        {/* Footer Note */}
-        <Box sx={{ mt: 6, p: 3, bgcolor: "info.light", borderRadius: 1 }}>
-          <Typography variant="body2" fontWeight="500" gutterBottom>
-            Dashboard Information
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            All data shown is in real-time and excludes cancelled orders. The
-            dashboards automatically update when new orders are created or when
-            shop information is modified. For district-based analysis, ensure
-            that shop records include district information. To add district data
-            to existing shops, run the migration file:{" "}
-            <code>supabase/migration_add_district_to_shops.sql</code>
-          </Typography>
-        </Box>
       </Container>
     </Box>
   );

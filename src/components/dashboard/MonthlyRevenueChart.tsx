@@ -197,7 +197,7 @@ const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({
 
         const monthData = monthMap.get(monthLabel)!;
         monthData.revenue += itemRevenue;
-        monthData.quantity += item.quantity;
+        monthData.quantity += Number(item.quantity);
       });
     });
 
