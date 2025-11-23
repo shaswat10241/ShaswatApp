@@ -265,10 +265,67 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
     });
   };
 
+  // Process district-employee breakdown for stacked bar chart
+  const getDistrictEmployeeBreakdown = (): { data: any[]; employees: string[] } => {
+    const districtEmployeeMap = new Map<string, Map<string, number>>();
+    const employeeSet = new Set<string>();
+
+    orders.forEach((order) => {
+      if (!order.employeeId) return;
+
+      const shop = shops.find((s) => s.id === order.shopId);
+      const district = shop?.district?.trim() || "Unknown";
+
+      // Skip Unknown districts for the chart
+      if (district === "Unknown") return;
+
+      const employee = employees.find((e) => e.id === order.employeeId);
+      const employeeName = employee?.name || "Unknown Employee";
+
+      employeeSet.add(employeeName);
+
+      if (!districtEmployeeMap.has(district)) {
+        districtEmployeeMap.set(district, new Map());
+      }
+
+      const employeeMap = districtEmployeeMap.get(district)!;
+      const currentRevenue = employeeMap.get(employeeName) || 0;
+      employeeMap.set(employeeName, currentRevenue + order.finalAmount);
+    });
+
+    // Convert to chart data format
+    const chartData = Array.from(districtEmployeeMap.entries()).map(([district, employeeMap]) => {
+      const dataPoint: any = { district };
+      employeeMap.forEach((revenue, employeeName) => {
+        dataPoint[employeeName] = Math.round(revenue);
+      });
+      return dataPoint;
+    });
+
+    // Sort by total revenue
+    chartData.sort((a, b) => {
+      const totalA = Object.keys(a).reduce((sum, key) => {
+        if (key !== "district") return sum + (a[key] || 0);
+        return sum;
+      }, 0);
+      const totalB = Object.keys(b).reduce((sum, key) => {
+        if (key !== "district") return sum + (b[key] || 0);
+        return sum;
+      }, 0);
+      return totalB - totalA;
+    });
+
+    return {
+      data: chartData,
+      employees: Array.from(employeeSet).sort(),
+    };
+  };
+
   const employeeData = getEmployeeData();
   const districtData = getDistrictData();
   const { data: employeeSkuChartData, skus: allSkus } = getEmployeeSkuBreakdown();
   const employeeSkuNeighborhoodData = getEmployeeSkuNeighborhoodData();
+  const { data: districtEmployeeChartData, employees: allEmployees } = getDistrictEmployeeBreakdown();
 
   const districts = Array.from(
     new Set(districtData.map((d) => d.district))
@@ -525,26 +582,71 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
 
       {viewMode === "district" && (
         <>
+          {/* District Employee Breakdown Chart */}
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+              Employee Breakdown by District
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Which employees are contributing to each district's sales
+            </Typography>
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart data={districtEmployeeChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="district"
+                  angle={-45}
+                  textAnchor="end"
+                  height={120}
+                  style={{ fontSize: "11px" }}
+                />
+                <YAxis tickFormatter={formatCurrency} style={{ fontSize: "12px" }} />
+                <Tooltip
+                  formatter={(value: number) => formatCurrency(value)}
+                  contentStyle={{ fontSize: "12px" }}
+                />
+                <Legend
+                  wrapperStyle={{ fontSize: "11px" }}
+                  iconSize={10}
+                />
+                {allEmployees.map((employee, index) => (
+                  <Bar
+                    key={employee}
+                    dataKey={employee}
+                    stackId="a"
+                    fill={COLORS[index % COLORS.length]}
+                    name={employee}
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </Box>
+
           {/* District Bar Chart */}
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={districtData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                dataKey="district"
-                angle={-45}
-                textAnchor="end"
-                height={100}
-                style={{ fontSize: "12px" }}
-              />
-              <YAxis tickFormatter={formatCurrency} style={{ fontSize: "12px" }} />
-              <Tooltip
-                formatter={(value: number) => formatCurrency(value)}
-                contentStyle={{ fontSize: "12px" }}
-              />
-              <Legend />
-              <Bar dataKey="revenue" name="Revenue" fill="#1976d2" radius={[8, 8, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+              Total Revenue by District
+            </Typography>
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart data={districtData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="district"
+                  angle={-45}
+                  textAnchor="end"
+                  height={100}
+                  style={{ fontSize: "12px" }}
+                />
+                <YAxis tickFormatter={formatCurrency} style={{ fontSize: "12px" }} />
+                <Tooltip
+                  formatter={(value: number) => formatCurrency(value)}
+                  contentStyle={{ fontSize: "12px" }}
+                />
+                <Legend />
+                <Bar dataKey="revenue" name="Revenue" fill="#1976d2" radius={[8, 8, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </Box>
 
           {/* District Summary Table */}
           <Box sx={{ mt: 3 }}>
