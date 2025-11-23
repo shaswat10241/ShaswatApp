@@ -161,6 +161,32 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
       .sort((a, b) => b.revenue - a.revenue);
   };
 
+  // Process SKU sales data
+  const getSkuData = () => {
+    const skuMap = new Map<string, { skuName: string; revenue: number; quantity: number }>();
+
+    orders.forEach((order) => {
+      order.orderItems.forEach((item) => {
+        const skuId = item.sku.id;
+        const skuName = item.sku.name;
+
+        if (!skuMap.has(skuId)) {
+          skuMap.set(skuId, { skuName, revenue: 0, quantity: 0 });
+        }
+
+        const itemRevenue =
+          item.quantity *
+          (item.unitType === "box" ? item.sku.boxPrice : item.sku.price);
+
+        const skuData = skuMap.get(skuId)!;
+        skuData.revenue += itemRevenue;
+        skuData.quantity += item.quantity;
+      });
+    });
+
+    return Array.from(skuMap.values()).sort((a, b) => b.revenue - a.revenue);
+  };
+
   // Process employee SKU neighborhood data
   const getEmployeeSkuNeighborhoodData = (): EmployeeSkuNeighborhoodData[] => {
     const dataMap = new Map<string, EmployeeSkuNeighborhoodData>();
@@ -208,6 +234,7 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
 
   const employeeData = getEmployeeData();
   const districtData = getDistrictData();
+  const skuData = getSkuData();
   const employeeSkuNeighborhoodData = getEmployeeSkuNeighborhoodData();
 
   const districts = Array.from(
@@ -342,6 +369,42 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
               </Bar>
             </BarChart>
           </ResponsiveContainer>
+
+          {/* SKU Sales Breakdown Chart */}
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+              Product (SKU) Sales Breakdown
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Revenue breakdown by product across all employees
+            </Typography>
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart data={skuData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="skuName"
+                  angle={-45}
+                  textAnchor="end"
+                  height={120}
+                  style={{ fontSize: "11px" }}
+                />
+                <YAxis tickFormatter={formatCurrency} style={{ fontSize: "12px" }} />
+                <Tooltip
+                  formatter={(value: number, name: string) => {
+                    if (name === "revenue") return formatCurrency(value);
+                    return value;
+                  }}
+                  contentStyle={{ fontSize: "12px" }}
+                />
+                <Legend />
+                <Bar dataKey="revenue" name="Revenue" radius={[8, 8, 0, 0]}>
+                  {skuData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </Box>
 
           {/* Employee District Breakdown Table */}
           <Box sx={{ mt: 3 }}>
