@@ -38,12 +38,6 @@ interface MonthlyData {
   avgOrderValue: number;
 }
 
-interface MonthlySkuNeighborhoodData {
-  month: string;
-  skuName: string;
-  neighborhoods: { [neighborhood: string]: { revenue: number; quantity: number } };
-}
-
 interface MonthlySkuData {
   month: string;
   [skuName: string]: number | string; // Dynamic SKU names with revenue values
@@ -171,68 +165,70 @@ const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({
   const monthlyData = getMonthlyData();
   const { data: monthlySkuChartData, skus: allSkus } = getMonthlySkuData();
 
-  // Get neighborhood breakdown by SKU for each month
-  const getMonthlySkuNeighborhoodData = (): MonthlySkuNeighborhoodData[] => {
-    const dataMap = new Map<string, MonthlySkuNeighborhoodData>();
+  // Get SKU sales by month for the last 3 months
+  const getSkuSalesByMonth = (): {
+    skuRows: { skuName: string; months: Map<string, { revenue: number; quantity: number }> }[];
+    recentMonths: string[];
+  } => {
+    const skuMonthMap = new Map<string, Map<string, { revenue: number; quantity: number }>>();
 
     orders.forEach((order) => {
       const date = new Date(order.createdAt);
-      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
       const monthLabel = date.toLocaleDateString("en-US", {
         month: "short",
         year: "numeric",
       });
 
-      const shop = shops.find((s) => s.id === order.shopId);
-      const neighborhood = shop?.location?.trim() || "Unknown Location";
-
       order.orderItems.forEach((item) => {
-        const key = `${monthKey}-${item.sku.id}`;
+        const skuName = item.sku.name;
 
-        if (!dataMap.has(key)) {
-          dataMap.set(key, {
-            month: monthLabel,
-            skuName: item.sku.name,
-            neighborhoods: {},
-          });
+        if (!skuMonthMap.has(skuName)) {
+          skuMonthMap.set(skuName, new Map());
         }
 
-        const data = dataMap.get(key)!;
-        if (!data.neighborhoods[neighborhood]) {
-          data.neighborhoods[neighborhood] = { revenue: 0, quantity: 0 };
+        const monthMap = skuMonthMap.get(skuName)!;
+        if (!monthMap.has(monthLabel)) {
+          monthMap.set(monthLabel, { revenue: 0, quantity: 0 });
         }
 
         const itemRevenue =
           item.quantity *
           (item.unitType === "box" ? item.sku.boxPrice : item.sku.price);
 
-        data.neighborhoods[neighborhood].revenue += itemRevenue;
-        data.neighborhoods[neighborhood].quantity += item.quantity;
+        const monthData = monthMap.get(monthLabel)!;
+        monthData.revenue += itemRevenue;
+        monthData.quantity += item.quantity;
       });
     });
 
-    return Array.from(dataMap.values()).sort((a, b) => {
-      const monthCompare = a.month.localeCompare(b.month);
-      if (monthCompare !== 0) return monthCompare;
-      return a.skuName.localeCompare(b.skuName);
+    // Get all unique months sorted
+    const allMonths = Array.from(
+      new Set(
+        Array.from(skuMonthMap.values()).flatMap((monthMap) =>
+          Array.from(monthMap.keys())
+        )
+      )
+    ).sort((a, b) => {
+      const dateA = new Date(a);
+      const dateB = new Date(b);
+      return dateA.getTime() - dateB.getTime();
     });
+
+    // Get last 3 months
+    const recentMonths = allMonths.slice(-3);
+
+    // Convert to array format
+    const skuRows = Array.from(skuMonthMap.entries())
+      .map(([skuName, months]) => ({
+        skuName,
+        months,
+      }))
+      .sort((a, b) => a.skuName.localeCompare(b.skuName));
+
+    return { skuRows, recentMonths };
   };
 
-  const skuNeighborhoodData = getMonthlySkuNeighborhoodData();
-
-  // Get unique neighborhoods for table columns
-  const allNeighborhoods = Array.from(
-    new Set(
-      skuNeighborhoodData.flatMap((data) =>
-        Object.keys(data.neighborhoods)
-      )
-    )
-  ).sort();
-
-  // Get last 3 months for the SKU table
-  const recentMonths = Array.from(
-    new Set(skuNeighborhoodData.map((d) => d.month))
-  ).slice(-3);
+  const { skuRows, recentMonths } = getSkuSalesByMonth();
 
   const formatCurrency = (value: number) => {
     return `₹${value.toLocaleString()}`;
@@ -361,83 +357,68 @@ const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({
         </Box>
       </Box>
 
-      {/* SKU Neighborhood Breakdown Table */}
+      {/* SKU Sales by Month Table */}
       <Box sx={{ mt: 4 }}>
         <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-          SKU Sales by Neighborhood (Last 3 Months)
+          SKU Sales by Month (Last 3 Months)
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-          Revenue and quantity breakdown for each product across different neighborhoods
+          Revenue and quantity breakdown for each product over the last 3 months
         </Typography>
         <TableContainer sx={{ maxHeight: 500, overflowX: "auto" }}>
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                <TableCell sx={{ bgcolor: "grey.100", fontWeight: "bold", minWidth: 100 }}>
-                  Month
-                </TableCell>
                 <TableCell sx={{ bgcolor: "grey.100", fontWeight: "bold", minWidth: 150 }}>
                   Product (SKU)
                 </TableCell>
-                {allNeighborhoods.slice(0, 8).map((neighborhood) => (
+                {recentMonths.map((month) => (
                   <TableCell
-                    key={neighborhood}
+                    key={month}
                     align="right"
                     sx={{ bgcolor: "grey.100", fontWeight: "bold", minWidth: 120 }}
                   >
-                    {neighborhood}
+                    {month}
                   </TableCell>
                 ))}
               </TableRow>
             </TableHead>
             <TableBody>
-              {skuNeighborhoodData
-                .filter((data) => recentMonths.includes(data.month))
-                .map((data, index) => (
-                  <TableRow key={index} hover>
-                    <TableCell>
-                      <Typography variant="caption" fontWeight="500">
-                        {data.month}
-                      </Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight="500">
-                        {data.skuName}
-                      </Typography>
-                    </TableCell>
-                    {allNeighborhoods.slice(0, 8).map((neighborhood) => (
-                      <TableCell key={neighborhood} align="right">
-                        {data.neighborhoods[neighborhood] ? (
-                          <Box>
-                            <Typography variant="caption" color="success.main" fontWeight="bold">
-                              {formatCurrency(data.neighborhoods[neighborhood].revenue)}
-                            </Typography>
-                            <Typography
-                              variant="caption"
-                              color="text.secondary"
-                              display="block"
-                              sx={{ fontSize: "0.7rem" }}
-                            >
-                              ({data.neighborhoods[neighborhood].quantity} units)
-                            </Typography>
-                          </Box>
-                        ) : (
-                          <Typography variant="caption" color="text.secondary">
-                            -
+              {skuRows.map((row, index) => (
+                <TableRow key={index} hover>
+                  <TableCell>
+                    <Typography variant="body2" fontWeight="500">
+                      {row.skuName}
+                    </Typography>
+                  </TableCell>
+                  {recentMonths.map((month) => (
+                    <TableCell key={month} align="right">
+                      {row.months.has(month) ? (
+                        <Box>
+                          <Typography variant="caption" color="success.main" fontWeight="bold">
+                            {formatCurrency(row.months.get(month)!.revenue)}
                           </Typography>
-                        )}
-                      </TableCell>
-                    ))}
-                  </TableRow>
-                ))}
+                          <Typography
+                            variant="caption"
+                            color="text.secondary"
+                            display="block"
+                            sx={{ fontSize: "0.7rem" }}
+                          >
+                            ({row.months.get(month)!.quantity} units)
+                          </Typography>
+                        </Box>
+                      ) : (
+                        <Typography variant="caption" color="text.secondary">
+                          -
+                        </Typography>
+                      )}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         </TableContainer>
-        {allNeighborhoods.length > 8 && (
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
-            Note: Showing first 8 neighborhoods out of {allNeighborhoods.length} total
-          </Typography>
-        )}
       </Box>
     </Paper>
   );
