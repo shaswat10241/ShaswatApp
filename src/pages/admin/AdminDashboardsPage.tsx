@@ -268,7 +268,7 @@ const AdminDashboardsPage: React.FC = () => {
         <Grid container spacing={4}>
           {/* 1. Monthly Sales Performance */}
           <Grid item xs={12}>
-            <MonthlyRevenueChart orders={activeOrders} chartType="bar" />
+            <MonthlyRevenueChart orders={activeOrders} shops={shops} chartType="bar" />
           </Grid>
 
           {/* 2. Chhattisgarh Map */}

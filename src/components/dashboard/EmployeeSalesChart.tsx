@@ -53,6 +53,13 @@ interface DistrictData {
   employees: number;
 }
 
+interface EmployeeSkuNeighborhoodData {
+  employeeId: string;
+  employeeName: string;
+  skuName: string;
+  neighborhoods: { [neighborhood: string]: { revenue: number; quantity: number } };
+}
+
 const COLORS = [
   "#1976d2",
   "#2e7d32",
@@ -154,10 +161,66 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
       .sort((a, b) => b.revenue - a.revenue);
   };
 
+  // Process employee SKU neighborhood data
+  const getEmployeeSkuNeighborhoodData = (): EmployeeSkuNeighborhoodData[] => {
+    const dataMap = new Map<string, EmployeeSkuNeighborhoodData>();
+
+    orders.forEach((order) => {
+      if (!order.employeeId) return;
+
+      const employee = employees.find((e) => e.id === order.employeeId);
+      const employeeName = employee?.name || "Unknown Employee";
+      const shop = shops.find((s) => s.id === order.shopId);
+      const neighborhood = shop?.location?.trim() || "Unknown Location";
+
+      order.orderItems.forEach((item) => {
+        const key = `${order.employeeId}-${item.sku.id}`;
+
+        if (!dataMap.has(key)) {
+          dataMap.set(key, {
+            employeeId: order.employeeId!,
+            employeeName,
+            skuName: item.sku.name,
+            neighborhoods: {},
+          });
+        }
+
+        const data = dataMap.get(key)!;
+        if (!data.neighborhoods[neighborhood]) {
+          data.neighborhoods[neighborhood] = { revenue: 0, quantity: 0 };
+        }
+
+        const itemRevenue =
+          item.quantity *
+          (item.unitType === "box" ? item.sku.boxPrice : item.sku.price);
+
+        data.neighborhoods[neighborhood].revenue += itemRevenue;
+        data.neighborhoods[neighborhood].quantity += item.quantity;
+      });
+    });
+
+    return Array.from(dataMap.values()).sort((a, b) => {
+      const employeeCompare = a.employeeName.localeCompare(b.employeeName);
+      if (employeeCompare !== 0) return employeeCompare;
+      return a.skuName.localeCompare(b.skuName);
+    });
+  };
+
   const employeeData = getEmployeeData();
   const districtData = getDistrictData();
+  const employeeSkuNeighborhoodData = getEmployeeSkuNeighborhoodData();
+
   const districts = Array.from(
     new Set(districtData.map((d) => d.district))
+  ).sort();
+
+  // Get unique neighborhoods for table columns
+  const allNeighborhoods = Array.from(
+    new Set(
+      employeeSkuNeighborhoodData.flatMap((data) =>
+        Object.keys(data.neighborhoods)
+      )
+    )
   ).sort();
 
   // Calculate shops with missing district data
@@ -341,6 +404,83 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
                 </TableBody>
               </Table>
             </TableContainer>
+          </Box>
+
+          {/* Employee SKU Neighborhood Breakdown Table */}
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+              SKU Sales by Neighborhood (Per Employee)
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Revenue and quantity breakdown for each product sold by employees across different neighborhoods
+            </Typography>
+            <TableContainer sx={{ maxHeight: 500, overflowX: "auto" }}>
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ bgcolor: "grey.100", fontWeight: "bold", minWidth: 150 }}>
+                      Employee
+                    </TableCell>
+                    <TableCell sx={{ bgcolor: "grey.100", fontWeight: "bold", minWidth: 150 }}>
+                      Product (SKU)
+                    </TableCell>
+                    {allNeighborhoods.slice(0, 6).map((neighborhood) => (
+                      <TableCell
+                        key={neighborhood}
+                        align="right"
+                        sx={{ bgcolor: "grey.100", fontWeight: "bold", minWidth: 120 }}
+                      >
+                        {neighborhood}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {employeeSkuNeighborhoodData.map((data, index) => (
+                    <TableRow key={index} hover>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="500">
+                          {data.employeeName}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="500">
+                          {data.skuName}
+                        </Typography>
+                      </TableCell>
+                      {allNeighborhoods.slice(0, 6).map((neighborhood) => (
+                        <TableCell key={neighborhood} align="right">
+                          {data.neighborhoods[neighborhood] ? (
+                            <Box>
+                              <Typography variant="caption" color="success.main" fontWeight="bold">
+                                {formatCurrency(data.neighborhoods[neighborhood].revenue)}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                display="block"
+                                sx={{ fontSize: "0.7rem" }}
+                              >
+                                ({data.neighborhoods[neighborhood].quantity} units)
+                              </Typography>
+                            </Box>
+                          ) : (
+                            <Typography variant="caption" color="text.secondary">
+                              -
+                            </Typography>
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            {allNeighborhoods.length > 6 && (
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+                Note: Showing first 6 neighborhoods out of {allNeighborhoods.length} total
+              </Typography>
+            )}
           </Box>
         </>
       )}

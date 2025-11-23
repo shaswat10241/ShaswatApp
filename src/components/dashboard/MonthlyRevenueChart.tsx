@@ -1,5 +1,15 @@
 import React from "react";
-import { Paper, Typography, Box } from "@mui/material";
+import {
+  Paper,
+  Typography,
+  Box,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+} from "@mui/material";
 import {
   LineChart,
   Line,
@@ -13,9 +23,11 @@ import {
   ResponsiveContainer,
 } from "recharts";
 import { Order } from "../../models/Order";
+import { Shop } from "../../models/Shop";
 
 interface MonthlyRevenueChartProps {
   orders: Order[];
+  shops: Shop[];
   chartType?: "line" | "bar";
 }
 
@@ -26,8 +38,15 @@ interface MonthlyData {
   avgOrderValue: number;
 }
 
+interface MonthlySkuNeighborhoodData {
+  month: string;
+  skuName: string;
+  neighborhoods: { [neighborhood: string]: { revenue: number; quantity: number } };
+}
+
 const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({
   orders,
+  shops,
   chartType = "bar",
 }) => {
   // Group orders by month
@@ -37,10 +56,6 @@ const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({
     orders.forEach((order) => {
       const date = new Date(order.createdAt);
       const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-      const monthLabel = date.toLocaleDateString("en-US", {
-        month: "short",
-        year: "numeric",
-      });
 
       if (!monthlyMap.has(monthKey)) {
         monthlyMap.set(monthKey, { revenue: 0, orderCount: 0 });
@@ -75,6 +90,69 @@ const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({
   };
 
   const monthlyData = getMonthlyData();
+
+  // Get neighborhood breakdown by SKU for each month
+  const getMonthlySkuNeighborhoodData = (): MonthlySkuNeighborhoodData[] => {
+    const dataMap = new Map<string, MonthlySkuNeighborhoodData>();
+
+    orders.forEach((order) => {
+      const date = new Date(order.createdAt);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      const monthLabel = date.toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+      });
+
+      const shop = shops.find((s) => s.id === order.shopId);
+      const neighborhood = shop?.location?.trim() || "Unknown Location";
+
+      order.orderItems.forEach((item) => {
+        const key = `${monthKey}-${item.sku.id}`;
+
+        if (!dataMap.has(key)) {
+          dataMap.set(key, {
+            month: monthLabel,
+            skuName: item.sku.name,
+            neighborhoods: {},
+          });
+        }
+
+        const data = dataMap.get(key)!;
+        if (!data.neighborhoods[neighborhood]) {
+          data.neighborhoods[neighborhood] = { revenue: 0, quantity: 0 };
+        }
+
+        const itemRevenue =
+          item.quantity *
+          (item.unitType === "box" ? item.sku.boxPrice : item.sku.price);
+
+        data.neighborhoods[neighborhood].revenue += itemRevenue;
+        data.neighborhoods[neighborhood].quantity += item.quantity;
+      });
+    });
+
+    return Array.from(dataMap.values()).sort((a, b) => {
+      const monthCompare = a.month.localeCompare(b.month);
+      if (monthCompare !== 0) return monthCompare;
+      return a.skuName.localeCompare(b.skuName);
+    });
+  };
+
+  const skuNeighborhoodData = getMonthlySkuNeighborhoodData();
+
+  // Get unique neighborhoods for table columns
+  const allNeighborhoods = Array.from(
+    new Set(
+      skuNeighborhoodData.flatMap((data) =>
+        Object.keys(data.neighborhoods)
+      )
+    )
+  ).sort();
+
+  // Get last 3 months for the SKU table
+  const recentMonths = Array.from(
+    new Set(skuNeighborhoodData.map((d) => d.month))
+  ).slice(-3);
 
   const formatCurrency = (value: number) => {
     return `₹${value.toLocaleString()}`;
@@ -195,6 +273,85 @@ const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({
             )}
           </Typography>
         </Box>
+      </Box>
+
+      {/* SKU Neighborhood Breakdown Table */}
+      <Box sx={{ mt: 4 }}>
+        <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+          SKU Sales by Neighborhood (Last 3 Months)
+        </Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Revenue and quantity breakdown for each product across different neighborhoods
+        </Typography>
+        <TableContainer sx={{ maxHeight: 500, overflowX: "auto" }}>
+          <Table size="small" stickyHeader>
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ bgcolor: "grey.100", fontWeight: "bold", minWidth: 100 }}>
+                  Month
+                </TableCell>
+                <TableCell sx={{ bgcolor: "grey.100", fontWeight: "bold", minWidth: 150 }}>
+                  Product (SKU)
+                </TableCell>
+                {allNeighborhoods.slice(0, 8).map((neighborhood) => (
+                  <TableCell
+                    key={neighborhood}
+                    align="right"
+                    sx={{ bgcolor: "grey.100", fontWeight: "bold", minWidth: 120 }}
+                  >
+                    {neighborhood}
+                  </TableCell>
+                ))}
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {skuNeighborhoodData
+                .filter((data) => recentMonths.includes(data.month))
+                .map((data, index) => (
+                  <TableRow key={index} hover>
+                    <TableCell>
+                      <Typography variant="caption" fontWeight="500">
+                        {data.month}
+                      </Typography>
+                    </TableCell>
+                    <TableCell>
+                      <Typography variant="body2" fontWeight="500">
+                        {data.skuName}
+                      </Typography>
+                    </TableCell>
+                    {allNeighborhoods.slice(0, 8).map((neighborhood) => (
+                      <TableCell key={neighborhood} align="right">
+                        {data.neighborhoods[neighborhood] ? (
+                          <Box>
+                            <Typography variant="caption" color="success.main" fontWeight="bold">
+                              {formatCurrency(data.neighborhoods[neighborhood].revenue)}
+                            </Typography>
+                            <Typography
+                              variant="caption"
+                              color="text.secondary"
+                              display="block"
+                              sx={{ fontSize: "0.7rem" }}
+                            >
+                              ({data.neighborhoods[neighborhood].quantity} units)
+                            </Typography>
+                          </Box>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">
+                            -
+                          </Typography>
+                        )}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
+        {allNeighborhoods.length > 8 && (
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+            Note: Showing first 8 neighborhoods out of {allNeighborhoods.length} total
+          </Typography>
+        )}
       </Box>
     </Paper>
   );
