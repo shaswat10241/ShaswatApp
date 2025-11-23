@@ -244,7 +244,7 @@ const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({
         Monthly Sales Performance
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Revenue comparison by product (SKU) over the last 12 months - grouped bars show each SKU's performance
+        Revenue breakdown by product (SKU) over the last 12 months - each color represents a different SKU
       </Typography>
 
       <ResponsiveContainer width="100%" height={400}>
@@ -319,6 +319,7 @@ const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({
               <Bar
                 key={sku}
                 dataKey={sku}
+                stackId="a"
                 fill={SKU_COLORS[index % SKU_COLORS.length]}
                 name={sku}
               />
