@@ -3,10 +3,6 @@ import {
   Paper,
   Typography,
   Box,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   Tabs,
   Tab,
   Table,
@@ -26,7 +22,6 @@ import {
   Tooltip,
   Legend,
   ResponsiveContainer,
-  Cell,
 } from "recharts";
 import { Order } from "../../models/Order";
 import { Shop } from "../../models/Shop";
@@ -86,7 +81,6 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
   const [viewMode, setViewMode] = useState<"employee" | "district">(
     "employee"
   );
-  const [selectedDistrict, setSelectedDistrict] = useState<string>("all");
 
   // Process employee sales data
   const getEmployeeData = (): EmployeeData[] => {
@@ -166,32 +160,6 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
     return Array.from(districtMap.values())
       .filter((d) => d.district !== "Unknown") // Exclude Unknown from district view
       .sort((a, b) => b.revenue - a.revenue);
-  };
-
-  // Process SKU sales data
-  const getSkuData = () => {
-    const skuMap = new Map<string, { skuName: string; revenue: number; quantity: number }>();
-
-    orders.forEach((order) => {
-      order.orderItems.forEach((item) => {
-        const skuId = item.sku.id;
-        const skuName = item.sku.name;
-
-        if (!skuMap.has(skuId)) {
-          skuMap.set(skuId, { skuName, revenue: 0, quantity: 0 });
-        }
-
-        const itemRevenue =
-          item.quantity *
-          (item.unitType === "box" ? item.sku.boxPrice : item.sku.price);
-
-        const skuData = skuMap.get(skuId)!;
-        skuData.revenue += itemRevenue;
-        skuData.quantity += item.quantity;
-      });
-    });
-
-    return Array.from(skuMap.values()).sort((a, b) => b.revenue - a.revenue);
   };
 
   // Process employee SKU breakdown for grouped bar chart
@@ -299,7 +267,6 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
 
   const employeeData = getEmployeeData();
   const districtData = getDistrictData();
-  const skuData = getSkuData();
   const { data: employeeSkuChartData, skus: allSkus } = getEmployeeSkuBreakdown();
   const employeeSkuNeighborhoodData = getEmployeeSkuNeighborhoodData();
 
@@ -324,24 +291,6 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
     const shop = shops.find((s) => s.id === order.shopId);
     return !shop?.district || shop.district.trim() === "";
   });
-
-  // Filter employee data by district if selected
-  const filteredEmployeeData =
-    selectedDistrict === "all"
-      ? employeeData
-      : employeeData
-          .map((emp) => {
-            const districtRevenue =
-              emp.districts[selectedDistrict]?.revenue || 0;
-            const districtOrders = emp.districts[selectedDistrict]?.orders || 0;
-            return {
-              ...emp,
-              revenue: districtRevenue,
-              orderCount: districtOrders,
-            };
-          })
-          .filter((emp) => emp.revenue > 0)
-          .sort((a, b) => b.revenue - a.revenue);
 
   const formatCurrency = (value: number) => {
     return `₹${value.toLocaleString()}`;
@@ -392,86 +341,6 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
 
       {viewMode === "employee" && (
         <>
-          {/* District Filter for Employee View */}
-          <Box sx={{ mb: 3 }}>
-            <FormControl sx={{ minWidth: 250 }}>
-              <InputLabel>Filter by District</InputLabel>
-              <Select
-                value={selectedDistrict}
-                label="Filter by District"
-                onChange={(e) => setSelectedDistrict(e.target.value)}
-              >
-                <MenuItem value="all">All Districts</MenuItem>
-                {districts.map((district) => (
-                  <MenuItem key={district} value={district}>
-                    {district}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-          </Box>
-
-          {/* Employee Bar Chart */}
-          <ResponsiveContainer width="100%" height={400}>
-            <BarChart data={filteredEmployeeData.slice(0, 10)}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis
-                dataKey="employeeName"
-                angle={-45}
-                textAnchor="end"
-                height={120}
-                style={{ fontSize: "11px" }}
-              />
-              <YAxis tickFormatter={formatCurrency} style={{ fontSize: "12px" }} />
-              <Tooltip
-                formatter={(value: number) => formatCurrency(value)}
-                contentStyle={{ fontSize: "12px" }}
-              />
-              <Legend />
-              <Bar dataKey="revenue" name="Revenue" radius={[8, 8, 0, 0]}>
-                {filteredEmployeeData.slice(0, 10).map((entry, index) => (
-                  <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
-
-          {/* SKU Sales Breakdown Chart */}
-          <Box sx={{ mt: 4 }}>
-            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
-              Product (SKU) Sales Breakdown
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Revenue breakdown by product across all employees
-            </Typography>
-            <ResponsiveContainer width="100%" height={400}>
-              <BarChart data={skuData}>
-                <CartesianGrid strokeDasharray="3 3" />
-                <XAxis
-                  dataKey="skuName"
-                  angle={-45}
-                  textAnchor="end"
-                  height={120}
-                  style={{ fontSize: "11px" }}
-                />
-                <YAxis tickFormatter={formatCurrency} style={{ fontSize: "12px" }} />
-                <Tooltip
-                  formatter={(value: number, name: string) => {
-                    if (name === "revenue") return formatCurrency(value);
-                    return value;
-                  }}
-                  contentStyle={{ fontSize: "12px" }}
-                />
-                <Legend />
-                <Bar dataKey="revenue" name="Revenue" radius={[8, 8, 0, 0]}>
-                  {skuData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </Box>
-
           {/* Employee SKU Breakdown Chart */}
           <Box sx={{ mt: 4 }}>
             <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
