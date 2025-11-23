@@ -8,6 +8,7 @@ interface Shop {
   id?: string;
   name: string;
   location: string;
+  district?: string;
   phoneNumber: string;
   category: "wholeseller" | "retailer";
   isNew: boolean;
@@ -122,6 +123,7 @@ class ShopDatabase {
           id: shop.id,
           name: shop.name,
           location: shop.location,
+          district: shop.district,
           phone_number: shop.phoneNumber,
           category: shop.category,
           is_new: shop.isNew,
@@ -139,6 +141,7 @@ class ShopDatabase {
       id: data.id,
       name: data.name,
       location: data.location,
+      district: data.district,
       phoneNumber: data.phone_number,
       category: data.category,
       isNew: data.is_new,
@@ -160,6 +163,7 @@ class ShopDatabase {
       id: shop.id,
       name: shop.name,
       location: shop.location,
+      district: shop.district,
       phoneNumber: shop.phone_number,
       category: shop.category,
       isNew: shop.is_new,
@@ -175,6 +179,7 @@ class ShopDatabase {
       .update({
         name: shop.name,
         location: shop.location,
+        district: shop.district,
         phone_number: shop.phoneNumber,
         category: shop.category,
         is_new: shop.isNew,
@@ -192,6 +197,7 @@ class ShopDatabase {
       id: data.id,
       name: data.name,
       location: data.location,
+      district: data.district,
       phoneNumber: data.phone_number,
       category: data.category,
       isNew: data.is_new,
