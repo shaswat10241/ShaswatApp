@@ -44,6 +44,30 @@ interface MonthlySkuNeighborhoodData {
   neighborhoods: { [neighborhood: string]: { revenue: number; quantity: number } };
 }
 
+interface MonthlySkuData {
+  month: string;
+  [skuName: string]: number | string; // Dynamic SKU names with revenue values
+}
+
+// Color palette for SKUs
+const SKU_COLORS = [
+  "#1976d2", // Blue
+  "#2e7d32", // Green
+  "#d32f2f", // Red
+  "#f57c00", // Orange
+  "#7b1fa2", // Purple
+  "#0288d1", // Light Blue
+  "#388e3c", // Light Green
+  "#c62828", // Dark Red
+  "#ef6c00", // Dark Orange
+  "#5e35b1", // Deep Purple
+  "#0097a7", // Cyan
+  "#689f38", // Light Green
+  "#f44336", // Red
+  "#ff9800", // Orange
+  "#9c27b0", // Purple
+];
+
 const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({
   orders,
   shops,
@@ -89,7 +113,63 @@ const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({
     return sortedData.slice(-12);
   };
 
+  // Group orders by month and SKU for the chart
+  const getMonthlySkuData = (): { data: MonthlySkuData[]; skus: string[] } => {
+    const monthlySkuMap = new Map<string, Map<string, number>>();
+    const skuSet = new Set<string>();
+
+    orders.forEach((order) => {
+      const date = new Date(order.createdAt);
+      const monthLabel = date.toLocaleDateString("en-US", {
+        month: "short",
+        year: "numeric",
+      });
+
+      if (!monthlySkuMap.has(monthLabel)) {
+        monthlySkuMap.set(monthLabel, new Map<string, number>());
+      }
+
+      const monthData = monthlySkuMap.get(monthLabel)!;
+
+      order.orderItems.forEach((item) => {
+        const skuName = item.sku.name;
+        skuSet.add(skuName);
+
+        const currentRevenue = monthData.get(skuName) || 0;
+        const itemRevenue =
+          item.quantity *
+          (item.unitType === "box" ? item.sku.boxPrice : item.sku.price);
+        monthData.set(skuName, currentRevenue + itemRevenue);
+      });
+    });
+
+    // Convert to array format for recharts
+    const chartData: MonthlySkuData[] = [];
+    const sortedMonths = Array.from(monthlySkuMap.keys()).sort((a, b) => {
+      const dateA = new Date(a);
+      const dateB = new Date(b);
+      return dateA.getTime() - dateB.getTime();
+    });
+
+    sortedMonths.slice(-12).forEach((month) => {
+      const monthData: MonthlySkuData = { month };
+      const skuData = monthlySkuMap.get(month)!;
+
+      skuData.forEach((revenue, skuName) => {
+        monthData[skuName] = Math.round(revenue);
+      });
+
+      chartData.push(monthData);
+    });
+
+    return {
+      data: chartData,
+      skus: Array.from(skuSet).sort(),
+    };
+  };
+
   const monthlyData = getMonthlyData();
+  const { data: monthlySkuChartData, skus: allSkus } = getMonthlySkuData();
 
   // Get neighborhood breakdown by SKU for each month
   const getMonthlySkuNeighborhoodData = (): MonthlySkuNeighborhoodData[] => {
@@ -164,7 +244,7 @@ const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({
         Monthly Sales Performance
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        Revenue and order trends over the last 12 months
+        Revenue breakdown by product (SKU) over the last 12 months - each color represents a different SKU
       </Typography>
 
       <ResponsiveContainer width="100%" height={400}>
@@ -217,7 +297,7 @@ const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({
             />
           </LineChart>
         ) : (
-          <BarChart data={monthlyData}>
+          <BarChart data={monthlySkuChartData}>
             <CartesianGrid strokeDasharray="3 3" />
             <XAxis
               dataKey="month"
@@ -228,16 +308,22 @@ const MonthlyRevenueChart: React.FC<MonthlyRevenueChartProps> = ({
             />
             <YAxis tickFormatter={formatCurrency} style={{ fontSize: "12px" }} />
             <Tooltip
-              formatter={(value: number, name: string) => {
-                if (name === "revenue" || name === "avgOrderValue") {
-                  return formatCurrency(value);
-                }
-                return value;
-              }}
+              formatter={(value: number) => formatCurrency(value)}
+              contentStyle={{ fontSize: "12px" }}
             />
-            <Legend />
-            <Bar dataKey="revenue" fill="#1976d2" name="Revenue" />
-            <Bar dataKey="avgOrderValue" fill="#2e7d32" name="Avg Order Value" />
+            <Legend
+              wrapperStyle={{ fontSize: "11px" }}
+              iconSize={10}
+            />
+            {allSkus.map((sku, index) => (
+              <Bar
+                key={sku}
+                dataKey={sku}
+                stackId="a"
+                fill={SKU_COLORS[index % SKU_COLORS.length]}
+                name={sku}
+              />
+            ))}
           </BarChart>
         )}
       </ResponsiveContainer>
