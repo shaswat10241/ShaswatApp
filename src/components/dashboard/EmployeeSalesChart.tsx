@@ -254,7 +254,7 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
           (item.unitType === "box" ? item.sku.boxPrice : item.sku.price);
 
         data.neighborhoods[neighborhood].revenue += itemRevenue;
-        data.neighborhoods[neighborhood].quantity += item.quantity;
+        data.neighborhoods[neighborhood].quantity += Number(item.quantity);
       });
     });
 
