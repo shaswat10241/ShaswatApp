@@ -69,6 +69,13 @@ const COLORS = [
   "#0288d1",
   "#388e3c",
   "#c62828",
+  "#ef6c00",
+  "#5e35b1",
+  "#0097a7",
+  "#689f38",
+  "#f44336",
+  "#ff9800",
+  "#9c27b0",
 ];
 
 const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
@@ -187,6 +194,64 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
     return Array.from(skuMap.values()).sort((a, b) => b.revenue - a.revenue);
   };
 
+  // Process employee SKU breakdown for grouped bar chart
+  const getEmployeeSkuBreakdown = (): { data: any[]; skus: string[] } => {
+    const employeeSkuMap = new Map<string, Map<string, number>>();
+    const skuSet = new Set<string>();
+
+    orders.forEach((order) => {
+      if (!order.employeeId) return;
+
+      const employee = employees.find((e) => e.id === order.employeeId);
+      const employeeName = employee?.name || "Unknown Employee";
+
+      if (!employeeSkuMap.has(employeeName)) {
+        employeeSkuMap.set(employeeName, new Map());
+      }
+
+      const skuMap = employeeSkuMap.get(employeeName)!;
+
+      order.orderItems.forEach((item) => {
+        const skuName = item.sku.name;
+        skuSet.add(skuName);
+
+        const itemRevenue =
+          item.quantity *
+          (item.unitType === "box" ? item.sku.boxPrice : item.sku.price);
+
+        const currentRevenue = skuMap.get(skuName) || 0;
+        skuMap.set(skuName, currentRevenue + itemRevenue);
+      });
+    });
+
+    // Convert to chart data format
+    const chartData = Array.from(employeeSkuMap.entries()).map(([employeeName, skuMap]) => {
+      const dataPoint: any = { employeeName };
+      skuMap.forEach((revenue, skuName) => {
+        dataPoint[skuName] = Math.round(revenue);
+      });
+      return dataPoint;
+    });
+
+    // Sort by total revenue
+    chartData.sort((a, b) => {
+      const totalA = Object.keys(a).reduce((sum, key) => {
+        if (key !== "employeeName") return sum + (a[key] || 0);
+        return sum;
+      }, 0);
+      const totalB = Object.keys(b).reduce((sum, key) => {
+        if (key !== "employeeName") return sum + (b[key] || 0);
+        return sum;
+      }, 0);
+      return totalB - totalA;
+    });
+
+    return {
+      data: chartData.slice(0, 10), // Top 10 employees
+      skus: Array.from(skuSet).sort(),
+    };
+  };
+
   // Process employee SKU neighborhood data
   const getEmployeeSkuNeighborhoodData = (): EmployeeSkuNeighborhoodData[] => {
     const dataMap = new Map<string, EmployeeSkuNeighborhoodData>();
@@ -235,6 +300,7 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
   const employeeData = getEmployeeData();
   const districtData = getDistrictData();
   const skuData = getSkuData();
+  const { data: employeeSkuChartData, skus: allSkus } = getEmployeeSkuBreakdown();
   const employeeSkuNeighborhoodData = getEmployeeSkuNeighborhoodData();
 
   const districts = Array.from(
@@ -402,6 +468,46 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
                     <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                   ))}
                 </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </Box>
+
+          {/* Employee SKU Breakdown Chart */}
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+              SKU Breakdown by Employee
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Which products each salesperson is selling - grouped by SKU
+            </Typography>
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart data={employeeSkuChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="employeeName"
+                  angle={-45}
+                  textAnchor="end"
+                  height={120}
+                  style={{ fontSize: "11px" }}
+                />
+                <YAxis tickFormatter={formatCurrency} style={{ fontSize: "12px" }} />
+                <Tooltip
+                  formatter={(value: number) => formatCurrency(value)}
+                  contentStyle={{ fontSize: "12px" }}
+                />
+                <Legend
+                  wrapperStyle={{ fontSize: "11px" }}
+                  iconSize={10}
+                />
+                {allSkus.map((sku, index) => (
+                  <Bar
+                    key={sku}
+                    dataKey={sku}
+                    stackId="a"
+                    fill={COLORS[index % COLORS.length]}
+                    name={sku}
+                  />
+                ))}
               </BarChart>
             </ResponsiveContainer>
           </Box>
