@@ -78,7 +78,7 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
   shops,
   employees,
 }) => {
-  const [viewMode, setViewMode] = useState<"employee" | "district">(
+  const [viewMode, setViewMode] = useState<"employee" | "district" | "sku">(
     "employee"
   );
 
@@ -265,6 +265,65 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
     });
   };
 
+  // Process SKU sales by district for stacked bar chart
+  const getSkuDistrictBreakdown = (): { data: any[]; skus: string[] } => {
+    const districtSkuMap = new Map<string, Map<string, number>>();
+    const skuSet = new Set<string>();
+
+    orders.forEach((order) => {
+      const shop = shops.find((s) => s.id === order.shopId);
+      const district = shop?.district?.trim() || "Unknown";
+
+      // Skip Unknown districts for the chart
+      if (district === "Unknown") return;
+
+      if (!districtSkuMap.has(district)) {
+        districtSkuMap.set(district, new Map());
+      }
+
+      const skuMap = districtSkuMap.get(district)!;
+
+      order.orderItems.forEach((item) => {
+        const skuName = item.sku.name;
+        skuSet.add(skuName);
+
+        const itemRevenue =
+          item.quantity *
+          (item.unitType === "box" ? item.sku.boxPrice : item.sku.price);
+
+        const currentRevenue = skuMap.get(skuName) || 0;
+        skuMap.set(skuName, currentRevenue + itemRevenue);
+      });
+    });
+
+    // Convert to chart data format
+    const chartData = Array.from(districtSkuMap.entries()).map(([district, skuMap]) => {
+      const dataPoint: any = { district };
+      skuMap.forEach((revenue, skuName) => {
+        dataPoint[skuName] = Math.round(revenue);
+      });
+      return dataPoint;
+    });
+
+    // Sort by total revenue
+    chartData.sort((a, b) => {
+      const totalA = Object.keys(a).reduce((sum, key) => {
+        if (key !== "district") return sum + (a[key] || 0);
+        return sum;
+      }, 0);
+      const totalB = Object.keys(b).reduce((sum, key) => {
+        if (key !== "district") return sum + (b[key] || 0);
+        return sum;
+      }, 0);
+      return totalB - totalA;
+    });
+
+    return {
+      data: chartData,
+      skus: Array.from(skuSet).sort(),
+    };
+  };
+
   // Process district-employee breakdown for stacked bar chart
   const getDistrictEmployeeBreakdown = (): { data: any[]; employees: string[] } => {
     const districtEmployeeMap = new Map<string, Map<string, number>>();
@@ -326,6 +385,7 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
   const { data: employeeSkuChartData, skus: allSkus } = getEmployeeSkuBreakdown();
   const employeeSkuNeighborhoodData = getEmployeeSkuNeighborhoodData();
   const { data: districtEmployeeChartData, employees: allEmployees } = getDistrictEmployeeBreakdown();
+  const { data: skuDistrictChartData, skus: allSkusForDistrict } = getSkuDistrictBreakdown();
 
   const districts = Array.from(
     new Set(districtData.map((d) => d.district))
@@ -381,6 +441,7 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
       >
         <Tab label="By Employee" value="employee" />
         <Tab label="By District" value="district" />
+        <Tab label="By SKU" value="sku" />
       </Tabs>
 
       {/* Warning for shops without district data */}
@@ -773,6 +834,127 @@ const EmployeeSalesChart: React.FC<EmployeeSalesChartProps> = ({
                 </TableBody>
               </Table>
             </TableContainer>
+          </Box>
+        </>
+      )}
+
+      {viewMode === "sku" && (
+        <>
+          {/* SKU Sales by District Chart */}
+          <Box sx={{ mb: 4 }}>
+            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+              SKU Sales Distribution by District
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Revenue breakdown for each product across different districts
+            </Typography>
+            <ResponsiveContainer width="100%" height={400}>
+              <BarChart data={skuDistrictChartData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis
+                  dataKey="district"
+                  angle={-45}
+                  textAnchor="end"
+                  height={120}
+                  style={{ fontSize: "11px" }}
+                />
+                <YAxis tickFormatter={formatCurrency} style={{ fontSize: "12px" }} />
+                <Tooltip
+                  formatter={(value: number) => formatCurrency(value)}
+                  contentStyle={{ fontSize: "12px" }}
+                />
+                <Legend
+                  wrapperStyle={{ fontSize: "11px" }}
+                  iconSize={10}
+                />
+                {allSkusForDistrict.map((sku, index) => (
+                  <Bar
+                    key={sku}
+                    dataKey={sku}
+                    stackId="a"
+                    fill={COLORS[index % COLORS.length]}
+                    name={sku}
+                  />
+                ))}
+              </BarChart>
+            </ResponsiveContainer>
+          </Box>
+
+          {/* Employee SKU Neighborhood Breakdown Table */}
+          <Box sx={{ mt: 4 }}>
+            <Typography variant="subtitle1" fontWeight="bold" gutterBottom>
+              SKU Sales by Neighborhood
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+              Revenue and quantity breakdown for each product across different neighborhoods
+            </Typography>
+            <TableContainer sx={{ maxHeight: 500, overflowX: "auto" }}>
+              <Table size="small" stickyHeader>
+                <TableHead>
+                  <TableRow>
+                    <TableCell sx={{ bgcolor: "grey.100", fontWeight: "bold", minWidth: 150 }}>
+                      Employee
+                    </TableCell>
+                    <TableCell sx={{ bgcolor: "grey.100", fontWeight: "bold", minWidth: 150 }}>
+                      Product (SKU)
+                    </TableCell>
+                    {allNeighborhoods.slice(0, 6).map((neighborhood) => (
+                      <TableCell
+                        key={neighborhood}
+                        align="right"
+                        sx={{ bgcolor: "grey.100", fontWeight: "bold", minWidth: 120 }}
+                      >
+                        {neighborhood}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {employeeSkuNeighborhoodData.map((data, index) => (
+                    <TableRow key={index} hover>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="500">
+                          {data.employeeName}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight="500">
+                          {data.skuName}
+                        </Typography>
+                      </TableCell>
+                      {allNeighborhoods.slice(0, 6).map((neighborhood) => (
+                        <TableCell key={neighborhood} align="right">
+                          {data.neighborhoods[neighborhood] ? (
+                            <Box>
+                              <Typography variant="caption" color="success.main" fontWeight="bold">
+                                {formatCurrency(data.neighborhoods[neighborhood].revenue)}
+                              </Typography>
+                              <Typography
+                                variant="caption"
+                                color="text.secondary"
+                                display="block"
+                                sx={{ fontSize: "0.7rem" }}
+                              >
+                                ({data.neighborhoods[neighborhood].quantity} units)
+                              </Typography>
+                            </Box>
+                          ) : (
+                            <Typography variant="caption" color="text.secondary">
+                              -
+                            </Typography>
+                          )}
+                        </TableCell>
+                      ))}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+            {allNeighborhoods.length > 6 && (
+              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
+                Note: Showing first 6 neighborhoods out of {allNeighborhoods.length} total
+              </Typography>
+            )}
           </Box>
         </>
       )}
